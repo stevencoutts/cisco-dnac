@@ -1,25 +1,52 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-from dnacentersdk import api
+from dnacentersdk import DNACenterAPI
 import requests
 from requests.auth import HTTPBasicAuth
 import json
+import time
 
-load_dotenv()
-env_path = Path('.')/''
-load_dotenv(dotenv_path=env_path)
-print(env_path)
-print (os.getenv("DNAC_URL"))
-DNAC_URL = "https://sandboxdnac2.cisco.com:443"
-DNAC_USER = "devnetuser"
-DNAC_PASS = "Cisco123!"
+load_dotenv("./environment.env")
+
+DNAC_URL = "https://198.18.133.101:443"
+DNAC_USER = "admin"
+DNAC_PASS = "C1sco12345"
+DNAC_AUTH = HTTPBasicAuth(DNAC_USER, DNAC_PASS)
+
+def time_sleep(time_sec):
+    """
+    This function will wait for the specified time_sec, while printing a progress bar, one '!' / second
+    Sample Output :
+    Wait for 10 seconds
+    !!!!!!!!!!
+    :param time_sec: time, in seconds
+    :return: none
+    """
+    print('\nWait for ' + str(time_sec) + ' seconds')
+    for i in range(time_sec):
+        print('!', end='')
+        time.sleep(1)
+    return
+
+def get_dnac_token(dnac_auth):
+    """
+    Create the authorization token required to access Cisco DNA Center
+    Call to Cisco DNA Center - /api/system/v1/auth/login
+    :param dnac_auth - Cisco DNA Center Basic Auth string
+    :return Cisco DNA Center Token
+    """
+    url = DNAC_URL + '/dna/system/api/v1/auth/token'
+    header = {'content-type': 'application/json'}
+    response = requests.post(url, auth=dnac_auth, headers=header, verify=False)
+    response_json = response.json()
+    dnac_jwt_token = response_json['Token']
+    return dnac_jwt_token
 
 def get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS):
     """ Authenticates with controller and returns a token to be used in subsequent API invocations
     """
     login_url = DNAC_URL+"/api/system/v1/auth/token"
-    print(login_url)
     result = requests.post(url=login_url, auth=HTTPBasicAuth(DNAC_USER, DNAC_PASS), verify=False)
     result.raise_for_status()
 
@@ -41,12 +68,57 @@ def create_fabric_site(site_hierarchy, dnac_token):
     url = DNAC_URL + '/dna/intent/api/v1/business/sda/fabric-site'
     header = {'content-type': 'application/json', 'x-auth-token': dnac_token}
     response = requests.post(url, data=json.dumps(payload), headers=header, verify=False)
-    response_json = response.json()
-    print (response_json)
+    return response
+
+def create_area(name, parent, dnac_api):
+    # create a new area
+    print('\nCreating a new area:', name)
+    area_payload = {
+        "type": "area",
+        "site": {
+            "area": {
+                "name": name,
+                "parentName": parent
+            }
+        }
+    }
+    response = dnac_api.sites.create_site(payload=area_payload)
+    print(response)
+    time_sleep(2)
+
+def create_building(name, parent, postcode, dnac_api):
+    print('\n\nCreating a new building:', name)
+    building_payload = {
+        'type': 'building',
+        'site': {
+            'building': {
+                'name': name,
+                'parentName': parent,
+                'address': postcode
+            }
+        }
+    }
+    response = dnac_api.sites.create_site(payload=building_payload)
+    print(response)
+    time_sleep(2)
+
+# Create a DNACenterAPI "Connection Object"
+dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
+# get Cisco DNA Center Auth token
+dnac_auth = get_dnac_token(DNAC_AUTH)
 
 auth = get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS)
-print(auth["token"])
-create_fabric_site("XMA", auth["token"])
+
+create_area("Manchester", "Global", dnac_api)
+create_area("Data Centre", "Manchester", dnac_api)
+create_building("DC 1", "Global/Manchester/Data Centre", "SR3 2NY", dnac_api)
+create_building("DC 2", "Global/Manchester/Data Centre", "SR3 2TT", dnac_api)
+create_fabric_site("Global/Manchester/Data Centre", auth["token"])
+create_area("Test Building", "Manchester", dnac_api)
+create_fabric_site("Global/Manchester/Test Building", auth["token"])
+
+
+
 
 
 
