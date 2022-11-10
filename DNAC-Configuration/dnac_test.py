@@ -62,6 +62,7 @@ def create_fabric_site(site_hierarchy, dnac_token):
     :param dnac_token: Cisco DNA Center auth token
     :return: response in JSON
     """
+    print('\nCreating a fabric site:', site_hierarchy)
     payload = {
         "siteNameHierarchy": site_hierarchy
     }
@@ -83,8 +84,7 @@ def create_area(name, parent, dnac_api):
         }
     }
     response = dnac_api.sites.create_site(payload=area_payload)
-    print(response)
-    time_sleep(2)
+    time_sleep(10)
 
 def create_building(name, parent, postcode, dnac_api):
     print('\n\nCreating a new building:', name)
@@ -99,8 +99,7 @@ def create_building(name, parent, postcode, dnac_api):
         }
     }
     response = dnac_api.sites.create_site(payload=building_payload)
-    print(response)
-    time_sleep(2)
+    time_sleep(10)
 
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
