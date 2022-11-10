@@ -39,17 +39,16 @@ from requests.auth import HTTPBasicAuth  # for Basic Auth
 
 urllib3.disable_warnings(InsecureRequestWarning)  # disable insecure https warnings
 
-load_dotenv('environment.env')
+load_dotenv('DNAC-Configuration/dnac_test.env')
 
 DNAC_URL = os.getenv('DNAC_URL')
 DNAC_USER = os.getenv('DNAC_USER')
 DNAC_PASS = os.getenv('DNAC_PASS')
 
-os.environ['TZ'] = 'America/Los_Angeles'  # define the timezone for PST
+os.environ['TZ'] = 'Europa/London'  # define the timezone for PST
 time.tzset()  # adjust the timezone, more info https://help.pythonanywhere.com/pages/SettingTheTimezone/
 
 DNAC_AUTH = HTTPBasicAuth(DNAC_USER, DNAC_PASS)
-
 
 def time_sleep(time_sec):
     """
@@ -115,7 +114,7 @@ def create_fabric_site(site_hierarchy, dnac_token):
     header = {'content-type': 'application/json', 'x-auth-token': dnac_token}
     response = requests.post(url, data=json.dumps(payload), headers=header, verify=False)
     response_json = response.json()
-    return response_json
+    print (response_json)
 
 
 def add_edge_device(device_ip, site_hierarchy, dnac_token):
