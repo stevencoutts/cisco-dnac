@@ -56,13 +56,12 @@ def create_fabric_site(site_hierarchy, dnac_token):
     :param dnac_token: Cisco DNA Center auth token
     :return: response in JSON
     """
-    print('\nCreating a fabric site:', site_hierarchy)
     payload = {
         "siteNameHierarchy": site_hierarchy
     }
     url = DNAC_URL + '/dna/intent/api/v1/business/sda/fabric-site'
     header = {'content-type': 'application/json', 'x-auth-token': dnac_token}
-    response = requests.post(url, data=json.dumps(payload), headers=header, verify=False)
+    response = requests.post(url, data=payload, headers=header, verify=False)
     return response
 
 def create_area(name, parent, dnac_api):
@@ -115,10 +114,16 @@ json = json.loads(open("DNAC-Configuration/sd-fabric.json").read())
 print (type(json['areas']))
 
 for x in json['areas']:
-    print("Creating Area    : " + str(x['parent']) + "/" + x['area'])
+    site_hierarchy = "Global/" + str(x['parent']) + "/" + str(x['area'])
+    print(" Creating Area      : " + str(x['parent']) + "/" + x['area'])
     create_area(x['area'], x['parent'], dnac_api)
+    if (x['fabric_site'] == "True"):
+        print(" Creating Fabric Site : " + site_hierarchy)
+        create_fabric_site(site_hierarchy, auth["token"])
     for y in (x['buildings']):
-        print("Creating Site    : " + str(y['name']))
+        print(" Creating Building    : " + str(y['name']))
+        create_building(y['name'], site_hierarchy, y['address'], dnac_api)
+
 
 
 

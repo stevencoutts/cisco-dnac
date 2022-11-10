@@ -3,23 +3,28 @@
         {
             "area": "Manchester",
             "parent": "Global",
+            "fabric_site": "False",
             "buildings": []
         },
         {
             "area": "Data Centre",
             "parent": "Manchester",
+            "fabric_site": "True",
             "buildings": [
                 {
-                    "name": "DC 1"
+                    "name": "DC 1",
+                    "address": "SR3 2NY"
                 },
                 {
-                    "name": "DC 2"
+                    "name": "DC 2",
+                    "address": "SR6 7DQ"
                 }
             ]
         },
         {
             "area": "Alex House",
             "parent": "Manchester",
+            "fabric_site": "True",
             "buildings": []
         }
     ]
