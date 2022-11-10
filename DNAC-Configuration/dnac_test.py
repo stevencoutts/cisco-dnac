@@ -78,7 +78,7 @@ def create_area(name, parent, dnac_api):
         }
     }
     response = dnac_api.sites.create_site(payload=area_payload)
-    time_sleep(10)
+    time_sleep(5)
     return response
 
 def create_building(name, parent, postcode, dnac_api):
@@ -93,7 +93,7 @@ def create_building(name, parent, postcode, dnac_api):
         }
     }
     response = dnac_api.sites.create_site(payload=building_payload)
-    time_sleep(10)
+    time_sleep(5)
     return response
 
 def create_floor(floor_name, parent, dnac_api):
@@ -110,6 +110,7 @@ def create_floor(floor_name, parent, dnac_api):
     response = dnac_api.sites.create_site(payload=floor_payload)
     time_sleep(3)
     if (DEBUG == "True"):
+        print(floor_payload)
         print(response)
     return response
 
