@@ -95,19 +95,21 @@ def create_building(name, parent, postcode, dnac_api):
     time_sleep(10)
     return response
 
-def create_floor(floor_name, parent):
+def create_floor(floor_name, parent, dnac_api):
     # create a new floor
     floor_payload = {
         'type': 'floor',
         'site': {
             'floor': {
                 'name': floor_name,
-                'parentName': parent,
+                'parentName': parent
             }
         }
     }
     response = dnac_api.sites.create_site(payload=floor_payload)
     time_sleep(10)
+    return response
+
 
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
@@ -142,15 +144,16 @@ for x in json_handle['areas']:
     #
     # cycle though any defined buildings and add
     #
-    for y in (x['buildings']):
-        print(" Creating Building    : " + site_hierarchy + "/" + str(y['name']))
-        create_building(y['name'], site_hierarchy, y['address'], dnac_api)
+    for building in (x['buildings']):
+        print(" Creating Building    : " + site_hierarchy + "/" + str(building['name']))
+        create_building(building['name'], site_hierarchy, building['address'], dnac_api)
         #
         # cycle though any defined floors for this building
         #
-        for z in (y['floors']):
-            print(" Creating Floor       : " + site_hierarchy + "/" + str(z['name']))
-            create_floor(z['name'], site_hierarchy)
+        for floor in (building['floors']):
+            floor_hierarchy = site_hierarchy + "/" + str(building['name']) + "/" + str(floor['name'])
+            print(" Creating Floor       : " + floor_hierarchy)
+            create_floor(floor['name'], floor_hierarchy, dnac_api)
 
 
 
