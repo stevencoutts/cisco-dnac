@@ -106,25 +106,25 @@ auth = get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS)
 #create_building("DC 1", "Global/Manchester/Data Centre", "SR3 2NY", dnac_api)
 #create_building("DC 2", "Global/Manchester/Data Centre", "SR3 2TT", dnac_api)
 #create_fabric_site("Global/Manchester/Data Centre", auth["token"])
-#create_area("Test Building", "Manchester", dnac_api)
-#create_fabric_site("Global/Manchester/Test Building", auth["token"])
+create_area("Test Building", "Manchester", dnac_api)
+create_fabric_site("Global/Manchester/Test Building", auth["token"])
 
 json = json.loads(open("DNAC-Configuration/sd-fabric.json").read())
 
-print (type(json['areas']))
-
+print("Configuring DNAC from sd-fabric.json .....")
+print("------------------------------------------------------------")
 for x in json['areas']:
-    site_hierarchy = "Global/" + str(x['parent']) + "/" + str(x['area'])
-    print(" Creating Area        : " + str(x['parent']) + "/" + x['area'])
+    site_hierarchy = str(x['parent']) + "/" + str(x['area'])
+    if (str(x['parent']) != "Global"):
+        site_hierarchy = "Global/" + str(x['parent']) + "/" + str(x['area'])
+    print(" Creating Area        : " + site_hierarchy)
     create_area(x['area'], x['parent'], dnac_api)
     if (x['fabric_site'] == "True"):
         print(" Creating Fabric Site : " + site_hierarchy)
         create_fabric_site(site_hierarchy, auth["token"])
     for y in (x['buildings']):
-        print(" Creating Building    : " + str(y['name']))
+        print(" Creating Building    : " + site_hierarchy + "/" + str(y['name']))
         create_building(y['name'], site_hierarchy, y['address'], dnac_api)
-
-
 
 
 
