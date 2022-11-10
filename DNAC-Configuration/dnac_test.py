@@ -115,7 +115,7 @@ print (type(json['areas']))
 
 for x in json['areas']:
     site_hierarchy = "Global/" + str(x['parent']) + "/" + str(x['area'])
-    print(" Creating Area      : " + str(x['parent']) + "/" + x['area'])
+    print(" Creating Area        : " + str(x['parent']) + "/" + x['area'])
     create_area(x['area'], x['parent'], dnac_api)
     if (x['fabric_site'] == "True"):
         print(" Creating Fabric Site : " + site_hierarchy)
