@@ -1,11 +1,16 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 from dnacentersdk import api
 import requests
 from requests.auth import HTTPBasicAuth
 import json
 
-load_dotenv('./dnac_test.env')
+load_dotenv()
+env_path = Path('.')/''
+load_dotenv(dotenv_path=env_path)
+print(env_path)
+print (os.getenv("DNAC_URL"))
 DNAC_URL = "https://sandboxdnac2.cisco.com:443"
 DNAC_USER = "devnetuser"
 DNAC_PASS = "Cisco123!"
