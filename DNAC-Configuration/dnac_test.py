@@ -95,6 +95,20 @@ def create_building(name, parent, postcode, dnac_api):
     time_sleep(10)
     return response
 
+def create_floor(floor_name, parent):
+    # create a new floor
+    floor_payload = {
+        'type': 'floor',
+        'site': {
+            'floor': {
+                'name': floor_name,
+                'parentName': parent,
+            }
+        }
+    }
+    response = dnac_api.sites.create_site(payload=floor_payload)
+    time_sleep(10)
+
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
 # get Cisco DNA Center Auth token
@@ -131,8 +145,9 @@ for x in json_handle['areas']:
     for y in (x['buildings']):
         print(" Creating Building    : " + site_hierarchy + "/" + str(y['name']))
         create_building(y['name'], site_hierarchy, y['address'], dnac_api)
-
-
+        for z in (y['floors']):
+            print(" Creating Floor       : " + site_hierarchy + "/" + str(z['name']))
+            create_floor(z['name'], site_hierarchy)
 
 
 

@@ -13,11 +13,13 @@
             "buildings": [
                 {
                     "name": "DC 1",
-                    "address": "SR3 2NY"
+                    "address": "SR3 2NY",
+                    "floors": []
                 },
                 {
                     "name": "DC 2",
-                    "address": "SR6 7DQ"
+                    "address": "SR6 7DQ",
+                    "floors": []
                 }
             ]
         },
@@ -28,7 +30,36 @@
             "buildings": [
                 {
                     "name": "Alex House",
-                    "address": "M27 4FH"
+                    "address": "M27 4FH",
+                    "floors": [
+                        {
+                            "name": "Ground Floor"
+                        },
+                        {
+                            "name": "1st Floor"
+                        },
+                        {
+                            "name": "2nd Floor"
+                        },
+                        {
+                            "name": "3rd Floor"
+                        },
+                        {
+                            "name": "4th Floor"
+                        },
+                        {
+                            "name": "5th Floor"
+                        },
+                        {
+                            "name": "6th Floor"
+                        },
+                        {
+                            "name": "7th Floor"
+                        },
+                        {
+                            "name": "8th Floor"
+                        }
+                    ]
                 }
             ]
         }
