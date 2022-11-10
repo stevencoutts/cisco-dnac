@@ -1,13 +1,8 @@
-import os
-from dotenv import load_dotenv
-from pathlib import Path
 from dnacentersdk import DNACenterAPI
 import requests
 from requests.auth import HTTPBasicAuth
 import json
 import time
-
-load_dotenv("./environment.env")
 
 DNAC_URL = "https://198.18.133.101:443"
 DNAC_USER = "admin"
@@ -23,9 +18,8 @@ def time_sleep(time_sec):
     :param time_sec: time, in seconds
     :return: none
     """
-    print('\nWait for ' + str(time_sec) + ' seconds')
     for i in range(time_sec):
-        print('!', end='')
+        #print('!', end='')
         time.sleep(1)
     return
 
@@ -73,7 +67,6 @@ def create_fabric_site(site_hierarchy, dnac_token):
 
 def create_area(name, parent, dnac_api):
     # create a new area
-    print('\nCreating a new area:', name)
     area_payload = {
         "type": "area",
         "site": {
@@ -85,9 +78,9 @@ def create_area(name, parent, dnac_api):
     }
     response = dnac_api.sites.create_site(payload=area_payload)
     time_sleep(10)
+    return response
 
 def create_building(name, parent, postcode, dnac_api):
-    print('\n\nCreating a new building:', name)
     building_payload = {
         'type': 'building',
         'site': {
@@ -100,6 +93,7 @@ def create_building(name, parent, postcode, dnac_api):
     }
     response = dnac_api.sites.create_site(payload=building_payload)
     time_sleep(10)
+    return response
 
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
@@ -108,13 +102,25 @@ dnac_auth = get_dnac_token(DNAC_AUTH)
 
 auth = get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS)
 
-create_area("Manchester", "Global", dnac_api)
-create_area("Data Centre", "Manchester", dnac_api)
-create_building("DC 1", "Global/Manchester/Data Centre", "SR3 2NY", dnac_api)
-create_building("DC 2", "Global/Manchester/Data Centre", "SR3 2TT", dnac_api)
-create_fabric_site("Global/Manchester/Data Centre", auth["token"])
-create_area("Test Building", "Manchester", dnac_api)
-create_fabric_site("Global/Manchester/Test Building", auth["token"])
+#create_area("Manchester", "Global", dnac_api)
+#create_area("Data Centre", "Manchester", dnac_api)
+#create_building("DC 1", "Global/Manchester/Data Centre", "SR3 2NY", dnac_api)
+#create_building("DC 2", "Global/Manchester/Data Centre", "SR3 2TT", dnac_api)
+#create_fabric_site("Global/Manchester/Data Centre", auth["token"])
+#create_area("Test Building", "Manchester", dnac_api)
+#create_fabric_site("Global/Manchester/Test Building", auth["token"])
+
+json = json.loads(open("DNAC-Configuration/sd-fabric.json").read())
+
+print (type(json['areas']))
+
+for x in json['areas']:
+    print("Creating Area    : " + str(x['parent']) + "/" + x['area'])
+    create_area(x['area'], x['parent'], dnac_api)
+    for y in (x['buildings']):
+        print("Creating Site    : " + str(y['name']))
+
+
 
 
 

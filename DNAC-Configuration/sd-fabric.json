@@ -1,0 +1,26 @@
+{
+    "areas": [
+        {
+            "area": "Manchester",
+            "parent": "Global",
+            "buildings": []
+        },
+        {
+            "area": "Data Centre",
+            "parent": "Manchester",
+            "buildings": [
+                {
+                    "name": "DC 1"
+                },
+                {
+                    "name": "DC 2"
+                }
+            ]
+        },
+        {
+            "area": "Alex House",
+            "parent": "Manchester",
+            "buildings": []
+        }
+    ]
+}
