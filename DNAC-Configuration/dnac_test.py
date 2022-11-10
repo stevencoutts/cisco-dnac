@@ -99,22 +99,35 @@ def create_building(name, parent, postcode, dnac_api):
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
 # get Cisco DNA Center Auth token
 dnac_auth = get_dnac_token(DNAC_AUTH)
-
 auth = get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS)
 
+# open json file
 json_handle = json.loads(open("DNAC-Configuration/sd-fabric.json").read())
 
 print("Configuring DNAC from sd-fabric.json .....")
 print("------------------------------------------------------------")
+
+#
+# cycle through all areas defined in json
+#
 for x in json_handle['areas']:
+    #
+    # set the site_hierarchy path, if this isn't Global root then add Global/ in front
+    #
     site_hierarchy = str(x['parent']) + "/" + str(x['area'])
     if (str(x['parent']) != "Global"):
         site_hierarchy = "Global/" + str(x['parent']) + "/" + str(x['area'])
     print(" Creating Area        : " + site_hierarchy)
     create_area(x['area'], x['parent'], dnac_api)
+    #
+    # if this is a fabric site then create one
+    #
     if (x['fabric_site'] == "True"):
         print(" Creating Fabric Site : " + site_hierarchy)
         create_fabric_site(site_hierarchy, auth["token"])
+    #
+    # cycle though any defined buildings and add
+    #
     for y in (x['buildings']):
         print(" Creating Building    : " + site_hierarchy + "/" + str(y['name']))
         create_building(y['name'], site_hierarchy, y['address'], dnac_api)

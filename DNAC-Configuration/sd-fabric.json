@@ -25,7 +25,12 @@
             "area": "Alex House",
             "parent": "Manchester",
             "fabric_site": "True",
-            "buildings": []
+            "buildings": [
+                {
+                    "name": "Alex House",
+                    "address": "M27 4FH"
+                }
+            ]
         }
     ]
 }
