@@ -56,13 +56,14 @@ def create_fabric_site(site_hierarchy, dnac_token):
     :param dnac_token: Cisco DNA Center auth token
     :return: response in JSON
     """
-    payload = {
+    fabric_site_payload = {
         "siteNameHierarchy": site_hierarchy
     }
     url = DNAC_URL + '/dna/intent/api/v1/business/sda/fabric-site'
     header = {'content-type': 'application/json', 'x-auth-token': dnac_token}
-    response = requests.post(url, data=payload, headers=header, verify=False)
-    return response
+    response = requests.post(url, data=json.dumps(fabric_site_payload), headers=header, verify=False)
+    response_json = response.json()
+    return response_json
 
 def create_area(name, parent, dnac_api):
     # create a new area
@@ -101,19 +102,11 @@ dnac_auth = get_dnac_token(DNAC_AUTH)
 
 auth = get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS)
 
-#create_area("Manchester", "Global", dnac_api)
-#create_area("Data Centre", "Manchester", dnac_api)
-#create_building("DC 1", "Global/Manchester/Data Centre", "SR3 2NY", dnac_api)
-#create_building("DC 2", "Global/Manchester/Data Centre", "SR3 2TT", dnac_api)
-#create_fabric_site("Global/Manchester/Data Centre", auth["token"])
-create_area("Test Building", "Manchester", dnac_api)
-create_fabric_site("Global/Manchester/Test Building", auth["token"])
-
-json = json.loads(open("DNAC-Configuration/sd-fabric.json").read())
+json_handle = json.loads(open("DNAC-Configuration/sd-fabric.json").read())
 
 print("Configuring DNAC from sd-fabric.json .....")
 print("------------------------------------------------------------")
-for x in json['areas']:
+for x in json_handle['areas']:
     site_hierarchy = str(x['parent']) + "/" + str(x['area'])
     if (str(x['parent']) != "Global"):
         site_hierarchy = "Global/" + str(x['parent']) + "/" + str(x['area'])
