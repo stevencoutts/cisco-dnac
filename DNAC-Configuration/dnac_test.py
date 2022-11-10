@@ -145,6 +145,9 @@ for x in json_handle['areas']:
     for y in (x['buildings']):
         print(" Creating Building    : " + site_hierarchy + "/" + str(y['name']))
         create_building(y['name'], site_hierarchy, y['address'], dnac_api)
+        #
+        # cycle though any defined floors for this building
+        #
         for z in (y['floors']):
             print(" Creating Floor       : " + site_hierarchy + "/" + str(z['name']))
             create_floor(z['name'], site_hierarchy)
