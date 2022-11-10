@@ -1,7 +1,24 @@
 {
-    "name" : "test",
-    "ip" : "198.168.23.45",
-    "country" : "United States",
-    "project" : "Data Analytics",
-    "website" : "scriptscrunch.com"
+    "areas": [
+        {
+            "area": "Manchester",
+            "parent": "Global"
+        },
+        {
+            "area": "Data Centre",
+            "parent": "Manchester",
+            "buildings": [
+                {
+                    "name": "DC 1"
+                },
+                {
+                    "name": "DC 2"
+                }
+            ]
+        },
+        {
+            "area": "Alex House",
+            "parent": "Manchester"
+        }
+    ]
 }
