@@ -8,6 +8,7 @@ DNAC_URL = "https://198.18.133.101:443"
 DNAC_USER = "admin"
 DNAC_PASS = "C1sco12345"
 DNAC_AUTH = HTTPBasicAuth(DNAC_USER, DNAC_PASS)
+DEBUG = "True"
 
 def time_sleep(time_sec):
     """
@@ -107,7 +108,9 @@ def create_floor(floor_name, parent, dnac_api):
         }
     }
     response = dnac_api.sites.create_site(payload=floor_payload)
-    time_sleep(10)
+    time_sleep(3)
+    if (DEBUG == "True"):
+        print(response)
     return response
 
 
@@ -145,16 +148,16 @@ for x in json_handle['areas']:
     # cycle though any defined buildings and add
     #
     for building in (x['buildings']):
-        building_hierarchy = site_hierarchy + "/" + str(building['name']))
+        building_hierarchy = site_hierarchy + "/" + str(building['name'])
         print(" Creating Building    : " + building_hierarchy)
         create_building(building['name'], site_hierarchy, building['address'], dnac_api)
         #
         # cycle though any defined floors for this building
         #
         for floor in (building['floors']):
-            floor_hierarchy = site_hierarchy + "/" + str(building['name']) + "/" + str(floor['name'])
+            floor_hierarchy = building_hierarchy + "/" + str(floor['name'])
             print(" Creating Floor       : " + floor_hierarchy)
-            create_floor(floor['name'], floor_hierarchy, dnac_api)
+            create_floor(floor['name'], building_hierarchy, dnac_api)
 
 
 
