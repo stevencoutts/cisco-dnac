@@ -244,6 +244,11 @@ for x in json_handle['areas']:
         for vrf in json_handle['vrfs']:
             print(" Assigning VRF        : " + site_hierarchy + "/" + vrf["name"])
             assign_l3_vn(vrf["name"], site_hierarchy, auth["token"])
+        #
+        # also assign INFRA_VN
+        #
+        assign_l3_vn("INFRA_VN", site_hierarchy, auth["token"])
+
     #
     # cycle though any defined buildings and add
     #
