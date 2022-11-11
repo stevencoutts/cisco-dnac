@@ -217,7 +217,7 @@ for x in json_handle['network-settings']:
     print("                      : " + x["domain"])
     print(" Net Settings NTP     : " + str(x["ntpServer"]))
     print("                      : " + x["timezone"])
-    print(" Net Settings DHCP    : " + str(x["ntpServer"]))
+    print(" Net Settings DHCP    : " + str(x["dhcpServer"]))
     set_network_settings(x['domain'], x['dns1'], x['dns2'], x["dhcpServer"], x["ntpServer"], x["timezone"], dnac_api)
 #
 # cycle through all areas defined in json
