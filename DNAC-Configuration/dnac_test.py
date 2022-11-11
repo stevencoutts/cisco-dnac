@@ -210,7 +210,7 @@ for x in json_handle['vrfs']:
     print(" Creating VRF         : " + x["name"])
     create_vn(x["name"], dnac_api)
 #
-# cycle through all network settings as configure as global
+# cycle through all network settings and configure as global
 #
 for x in json_handle['network-settings']:
     print(" Net Settings DNS     : " + x["dns1"] + " " + x["dns2"])
