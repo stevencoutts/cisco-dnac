@@ -213,7 +213,7 @@ for x in json_handle['vrfs']:
 # cycle through all network settings and configure as global
 #
 for x in json_handle['network-settings']:
-    print(" Net Settings DNS     : " + x["dns1"] + " " + x["dns2"])
+    print(" Net Settings DNS     : " + x["dns1"] + ", " + x["dns2"])
     print("                      : " + x["domain"])
     print(" Net Settings NTP     : " + str(x["ntpServer"]))
     print("                      : " + x["timezone"])

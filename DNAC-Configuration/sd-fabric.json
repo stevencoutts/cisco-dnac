@@ -83,7 +83,7 @@
     ],
     "network-settings": [
         {
-            "domain": "mcc.gov.uk",
+            "domain": "domain.com",
             "dns1": "1.1.1.1",
             "dns2": "2.2.2.2",
             "ntpServer": [
