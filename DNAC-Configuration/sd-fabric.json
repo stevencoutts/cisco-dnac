@@ -1,4 +1,12 @@
 {
+    "vrfs": [
+        {
+            "name": "corp_vn"
+        },
+        {
+            "name": "guest_vn"
+        }
+    ],
     "areas": [
         {
             "area": "Manchester",
@@ -33,31 +41,40 @@
                     "address": "M27 4FH",
                     "floors": [
                         {
-                            "name": "Ground Floor"
+                            "name": "Ground Floor",
+                            "number": "0"
                         },
                         {
-                            "name": "1st Floor"
+                            "name": "1st Floor",
+                            "number": "1"
                         },
                         {
-                            "name": "2nd Floor"
+                            "name": "2nd Floor",
+                            "number": "2"
                         },
                         {
-                            "name": "3rd Floor"
+                            "name": "3rd Floor",
+                            "number": "3"
                         },
                         {
-                            "name": "4th Floor"
+                            "name": "4th Floor",
+                            "number": "4"
                         },
                         {
-                            "name": "5th Floor"
+                            "name": "5th Floor",
+                            "number": "5"
                         },
                         {
-                            "name": "6th Floor"
+                            "name": "6th Floor",
+                            "number": "6"
                         },
                         {
-                            "name": "7th Floor"
+                            "name": "7th Floor",
+                            "number": "7"
                         },
                         {
-                            "name": "8th Floor"
+                            "name": "8th Floor",
+                            "number": "8"
                         }
                     ]
                 }

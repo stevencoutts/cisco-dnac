@@ -1,4 +1,5 @@
 from dnacentersdk import DNACenterAPI
+from dnacentersdk.exceptions import ApiError
 import requests
 from requests.auth import HTTPBasicAuth
 import json
@@ -8,7 +9,7 @@ DNAC_URL = "https://198.18.133.101:443"
 DNAC_USER = "admin"
 DNAC_PASS = "C1sco12345"
 DNAC_AUTH = HTTPBasicAuth(DNAC_USER, DNAC_PASS)
-DEBUG = "True"
+DEBUG = False
 
 def time_sleep(time_sec):
     """
@@ -77,7 +78,10 @@ def create_area(name, parent, dnac_api):
             }
         }
     }
-    response = dnac_api.sites.create_site(payload=area_payload)
+    try:
+        response = dnac_api.sites.create_site(payload=area_payload)
+    except ApiError as e:
+        print(e)
     time_sleep(5)
     return response
 
@@ -92,28 +96,53 @@ def create_building(name, parent, postcode, dnac_api):
             }
         }
     }
-    response = dnac_api.sites.create_site(payload=building_payload)
+    try:
+        response = dnac_api.sites.create_site(payload=building_payload)
+    except ApiError as e:
+        print(e)
     time_sleep(5)
     return response
 
-def create_floor(floor_name, parent, dnac_api):
+    return response
+
+def create_floor(floor_name, parent, number, dnac_api):
     # create a new floor
     floor_payload = {
         'type': 'floor',
         'site': {
             'floor': {
                 'name': floor_name,
-                'parentName': parent
+                'number': number,
+                'parentName': parent,
+                "rfModel": "Cubes And Walled Offices"
             }
         }
     }
-    response = dnac_api.sites.create_site(payload=floor_payload)
+    try:
+        response = dnac_api.sites.create_site(payload=floor_payload)
+    except ApiError as e:
+        print(e)
     time_sleep(3)
-    if (DEBUG == "True"):
+    if (DEBUG):
         print(floor_payload)
         print(response)
     return response
 
+def create_vn(l3_vn_name, dnac_api):
+    # create L3 VN at global level
+    l3_vn_payload = {
+        'virtualNetworkName': l3_vn_name,
+        "isGuestVirtualNetwork": False,
+    }
+    try:
+        response = dnac_api.sda.add_virtual_network_with_scalable_groups(payload=l3_vn_payload)
+    except ApiError as e:
+        print(e)
+    if (DEBUG):
+        print(l3_vn_payload)
+        print(response)
+    return response
+    time_sleep(5)
 
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
@@ -127,6 +156,12 @@ json_handle = json.loads(open("DNAC-Configuration/sd-fabric.json").read())
 print("Configuring DNAC from sd-fabric.json .....")
 print("------------------------------------------------------------")
 
+#
+# cycle through all vrfs defined in json
+#
+for x in json_handle['vrfs']:
+    print(" Creating VRF         : " + x["name"])
+    create_vn(x["name"], dnac_api)
 #
 # cycle through all areas defined in json
 #
@@ -151,14 +186,14 @@ for x in json_handle['areas']:
     for building in (x['buildings']):
         building_hierarchy = site_hierarchy + "/" + str(building['name'])
         print(" Creating Building    : " + building_hierarchy)
-        create_building(building['name'], site_hierarchy, building['address'], dnac_api)
+        create_building(str(building['name']), site_hierarchy, building['address'], dnac_api)
         #
         # cycle though any defined floors for this building
         #
         for floor in (building['floors']):
             floor_hierarchy = building_hierarchy + "/" + str(floor['name'])
             print(" Creating Floor       : " + floor_hierarchy)
-            create_floor(floor['name'], building_hierarchy, dnac_api)
+            create_floor(str(floor['name']), building_hierarchy, floor['number'], dnac_api)
 
 
 
