@@ -203,6 +203,7 @@ for x in json_handle['areas']:
         create_fabric_site(site_hierarchy, auth["token"])
         #
         # cycle through all vrfs defined in json
+        # assign the vrf to this fabric site
         #
         for vrf in json_handle['vrfs']:
             print(" Assigning VRF        : " + site_hierarchy + "/" + vrf["name"])
