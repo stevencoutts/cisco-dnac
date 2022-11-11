@@ -163,7 +163,7 @@ def assign_l3_vn(l3_vn_name, site_hierarchy, dnac_token):
     response_json = response.json()
     return response_json
 
-def set_network_settings(domain, dns1, dns2, ntpServer, timezone, dnac_api):
+def set_network_settings(domain, dns1, dns2, ntpServer, dhcpServer, timezone, dnac_api):
     # create site network settings
     network_settings_payload = {
         'settings': {
@@ -172,17 +172,24 @@ def set_network_settings(domain, dns1, dns2, ntpServer, timezone, dnac_api):
                 'primaryIpAddress': dns1,
                 'secondaryIpAddress': dns2,
                 'ntpServer': ntpServer,
+                'dhcpServer': dhcpServer,
                 'timezone': timezone
             },
         }
     }
-
     # get the site_id
     response = dnac_api.sites.get_site(name='Global')
     site_id = response['response'][0]['id']
-    response = dnac_api.network_settings.create_network(site_id=site_id, payload=network_settings_payload)
+    try:
+        response = dnac_api.network_settings.create_network(site_id=site_id, payload=network_settings_payload)
+    except ApiError as e:
+        print(e)
+    time_sleep(3)
+    if (DEBUG):
+        print(network_settings_payload)
+        print(response)
     time_sleep(10)
-
+    return response
 
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
@@ -206,11 +213,12 @@ for x in json_handle['vrfs']:
 # cycle through all network settings as configure as global
 #
 for x in json_handle['network-settings']:
-    print(" Network Settings DNS : " + x["dns1"] + " " + x["dns2"])
+    print(" Net Settings DNS     : " + x["dns1"] + " " + x["dns2"])
     print("                      : " + x["domain"])
-    print(" Network Settings NTP : " + str(x["ntpServer"]))
+    print(" Net Settings NTP     : " + str(x["ntpServer"]))
     print("                      : " + x["timezone"])
-    set_network_settings(x['domain'], x['dns1'], x['dns2'], x["ntpServer"], x["timezone"], dnac_api)
+    print(" Net Settings DHCP    : " + str(x["ntpServer"]))
+    set_network_settings(x['domain'], x['dns1'], x['dns2'], x["dhcpServer"], x["ntpServer"], x["timezone"], dnac_api)
 #
 # cycle through all areas defined in json
 #
