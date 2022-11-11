@@ -144,6 +144,26 @@ def create_vn(l3_vn_name, dnac_api):
     return response
     time_sleep(5)
 
+def assign_l3_vn(l3_vn_name, site_hierarchy, dnac_token):
+    """
+    This function will create a new L3 virtual network with the name {l3_vn_name} at the site
+    with the hierarchy {site_hierarchy}
+    :param l3_vn_name: L3 VN name
+    :param site_hierarchy: site hierarchy
+    :param dnac_token: Cisco DNA Center auth token
+    :return: API response
+    """
+    url = DNAC_URL + '/dna/intent/api/v1/business/sda/virtual-network'
+    payload = {
+        'virtualNetworkName': l3_vn_name,
+        "siteNameHierarchy": site_hierarchy
+    }
+    header = {'content-type': 'application/json', 'x-auth-token': dnac_token}
+    response = requests.post(url, data=json.dumps(payload), headers=header, verify=False)
+    response_json = response.json()
+    return response_json
+
+
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
 # get Cisco DNA Center Auth token
@@ -181,6 +201,12 @@ for x in json_handle['areas']:
     if (x['fabric_site'] == "True"):
         print(" Creating Fabric Site : " + site_hierarchy)
         create_fabric_site(site_hierarchy, auth["token"])
+        #
+        # cycle through all vrfs defined in json
+        #
+        for vrf in json_handle['vrfs']:
+            print(" Assigning VRF        : " + site_hierarchy + "/" + vrf["name"])
+            assign_l3_vn(vrf["name"], site_hierarchy, auth["token"])
     #
     # cycle though any defined buildings and add
     #
