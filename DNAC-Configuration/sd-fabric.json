@@ -9,14 +9,14 @@
     ],
     "areas": [
         {
-            "area": "Manchester",
+            "area": "Test",
             "parent": "Global",
             "fabric_site": "False",
             "buildings": []
         },
         {
-            "area": "Data Centre",
-            "parent": "Manchester",
+            "area": "Test 2",
+            "parent": "Test",
             "fabric_site": "True",
             "buildings": [
                 {
@@ -32,12 +32,12 @@
             ]
         },
         {
-            "area": "Alex House",
+            "area": "Test 3",
             "parent": "Manchester",
             "fabric_site": "True",
             "buildings": [
                 {
-                    "name": "Alex House",
+                    "name": "Test 3",
                     "address": "M27 4FH",
                     "floors": [
                         {
