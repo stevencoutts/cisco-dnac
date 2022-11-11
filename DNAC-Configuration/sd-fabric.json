@@ -83,8 +83,14 @@
     ],
     "network-settings": [
         {
+            "domain": "mcc.gov.uk",
             "dns1": "1.1.1.1",
-            "dns2": "2.2.2.2"
+            "dns2": "2.2.2.2",
+            "ntpServer": [
+                "1.1.1.1",
+                "2.2.2.2"
+            ],
+            "timezone": "Europe/London (GMT)"
         }
     ]
 }

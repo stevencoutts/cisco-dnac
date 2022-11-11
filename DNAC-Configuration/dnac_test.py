@@ -163,6 +163,26 @@ def assign_l3_vn(l3_vn_name, site_hierarchy, dnac_token):
     response_json = response.json()
     return response_json
 
+def set_network_settings(domain, dns1, dns2, ntpServer, timezone, dnac_api):
+    # create site network settings
+    network_settings_payload = {
+        'settings': {
+            'dnsServer': {
+                'domainName': domain,
+                'primaryIpAddress': dns1,
+                'secondaryIpAddress': dns2,
+                'ntpServer': ntpServer,
+                'timezone': timezone
+            },
+        }
+    }
+
+    # get the site_id
+    response = dnac_api.sites.get_site(name='Global')
+    site_id = response['response'][0]['id']
+    response = dnac_api.network_settings.create_network(site_id=site_id, payload=network_settings_payload)
+    time_sleep(10)
+
 
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
@@ -182,6 +202,15 @@ print("------------------------------------------------------------")
 for x in json_handle['vrfs']:
     print(" Creating VRF         : " + x["name"])
     create_vn(x["name"], dnac_api)
+#
+# cycle through all network settings as configure as global
+#
+for x in json_handle['network-settings']:
+    print(" Network Settings DNS : " + x["dns1"] + " " + x["dns2"])
+    print("                      : " + x["domain"])
+    print(" Network Settings NTP : " + str(x["ntpServer"]))
+    print("                      : " + x["timezone"])
+    set_network_settings(x['domain'], x['dns1'], x['dns2'], x["ntpServer"], x["timezone"], dnac_api)
 #
 # cycle through all areas defined in json
 #
