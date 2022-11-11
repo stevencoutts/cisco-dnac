@@ -198,7 +198,7 @@ dnac_auth = get_dnac_token(DNAC_AUTH)
 auth = get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS)
 
 # open json file
-json_handle = json.loads(open("DNAC-Configuration/sd-fabric.json").read())
+json_handle = json.loads(open("DNAC-Configuration/working.json").read())
 
 print("Configuring DNAC from sd-fabric.json .....")
 print("------------------------------------------------------------")
