@@ -247,6 +247,7 @@ for x in json_handle['areas']:
         #
         # also assign INFRA_VN
         #
+        print(" Assigning VRF        : " + site_hierarchy + "/INFRA_VN")
         assign_l3_vn("INFRA_VN", site_hierarchy, auth["token"])
 
     #
