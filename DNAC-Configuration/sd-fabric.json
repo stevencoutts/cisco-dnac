@@ -90,6 +90,10 @@
                 "1.1.1.1",
                 "2.2.2.2"
             ],
+            "dhcpServer": [
+                "1.1.1.1",
+                "2.2.2.2"
+            ],
             "timezone": "Europe/London (GMT)"
         }
     ]
