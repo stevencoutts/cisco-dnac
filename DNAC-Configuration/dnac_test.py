@@ -196,7 +196,6 @@ for x in json_handle['areas']:
     create_area(x['area'], x['parent'], dnac_api)
     #
     # if this is a fabric site then create one
-    # we should assign vn's to fabric after creating it
     #
     if (x['fabric_site'] == "True"):
         print(" Creating Fabric Site : " + site_hierarchy)
