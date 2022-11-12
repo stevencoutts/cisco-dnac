@@ -170,11 +170,11 @@ def set_network_settings(domain, dns1, dns2, ntpServer, dhcpServer, timezone, dn
             'dnsServer': {
                 'domainName': domain,
                 'primaryIpAddress': dns1,
-                'secondaryIpAddress': dns2,
-                'ntpServer': ntpServer,
-                'dhcpServer': dhcpServer,
-                'timezone': timezone
+                'secondaryIpAddress': dns2
             },
+            'ntpServer': ntpServer,
+            'dhcpServer': dhcpServer,
+            'timezone': timezone
         }
     }
     # get the site_id
