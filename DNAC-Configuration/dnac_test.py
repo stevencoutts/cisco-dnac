@@ -191,6 +191,48 @@ def set_network_settings(domain, dns1, dns2, ntpServer, dhcpServer, timezone, dn
     time_sleep(10)
     return response
 
+def create_auth_profile(auth_profile, site_hierarchy, dnac_token):
+    """
+    This function will create a new default auth profile for the fabric at the {site_hierarchy}
+    :param auth_profile: auth profile, enum { No Authentication , Open Authentication, Closed Authentication, Low Impact}
+    :param site_hierarchy: site hierarchy
+    :param dnac_token: Cisco DNA Center auth token
+    :return: API response
+    """
+    url = DNAC_URL + '/dna/intent/api/v1/business/sda/authentication-profile'
+    payload = {
+        'siteNameHierarchy': site_hierarchy,
+        "authenticateTemplateName": auth_profile
+    }
+    header = {'content-type': 'application/json', 'x-auth-token': dnac_token}
+    response = requests.post(url, data=json.dumps(payload), headers=header, verify=False)
+    response_json = response.json()
+    return response_json
+
+def create_global_ippool(ip_pool_name, ip_pool_address_space, ip_pool_cidr):
+    # create a new Global Pool
+    global_pool_payload = {
+        'settings': {
+            'ippool': [
+                {
+                    'ipPoolName': ip_pool_name,
+                    'type': "Generic",
+                    'ipPoolCidr': ip_pool_cidr,
+                    'IpAddressSpace': ip_pool_address_space
+                }
+            ]
+        }
+    }
+    try:
+        response = dnac_api.network_settings.create_global_pool(payload=global_pool_payload)
+    except ApiError as e:
+        print(e)
+    time_sleep(3)
+    if (DEBUG):
+        print(global_pool_payload)
+        print(response)
+    return response
+
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
 # get Cisco DNA Center Auth token
@@ -219,6 +261,12 @@ for x in json_handle['network-settings']:
     print("                      : " + x["timezone"])
     print(" Net Settings DHCP    : " + str(x["dhcpServer"]))
     set_network_settings(x['domain'], x['dns1'], x['dns2'], x["dhcpServer"], x["ntpServer"], x["timezone"], dnac_api)
+#
+# cycle through all global IP pools
+#
+for x in json_handle['global-ip-pools']:
+    print(" Global IP Pool       : " + x["name"] + ", " + x["subnet"] + x["cidr"])
+    create_global_ippool(x["name"], x["subnet"], x["subnet"] + x["cidr"])
 #
 # cycle through all areas defined in json
 #
@@ -249,6 +297,11 @@ for x in json_handle['areas']:
         #
         print(" Assigning VRF        : " + site_hierarchy + "/INFRA_VN")
         assign_l3_vn("INFRA_VN", site_hierarchy, auth["token"])
+        #
+        # Set the default authentication template
+        #
+        print(" Set Auth Template    : " + site_hierarchy + " - Open Authentication")
+        create_auth_profile("Open Authentication", site_hierarchy, auth["token"])
 
     #
     # cycle though any defined buildings and add
