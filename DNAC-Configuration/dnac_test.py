@@ -123,7 +123,7 @@ def create_floor(floor_name, parent, number, dnac_api):
         print(e)
     time_sleep(3)
     if (DEBUG):
-        print(floor_payload)
+        print(json.dumps(floor_payload, indent=4))
         print(response)
     return response
 
@@ -228,7 +228,7 @@ def create_global_ippool(ip_pool_name, ip_pool_address_space, ip_pool_cidr):
         print(e)
     time_sleep(3)
     if (DEBUG):
-        print(global_pool_payload)
+        print(json.dumps(global_pool_payload, indent=4))
         print(response)
     return response
 
@@ -253,7 +253,7 @@ def reserve_ip_pool(hierarchy, subnet, prefix, parent, name):
         print(e)
     time_sleep(3)
     if (DEBUG):
-        print(json.dumps(sub_pool_payload, indent="4"))
+        print(json.dumps(sub_pool_payload, indent=4))
         print(response)
     return response
 
