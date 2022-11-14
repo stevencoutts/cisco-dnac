@@ -9,7 +9,7 @@ DNAC_URL = "https://198.18.133.101:443"
 DNAC_USER = "admin"
 DNAC_PASS = "C1sco12345"
 DNAC_AUTH = HTTPBasicAuth(DNAC_USER, DNAC_PASS)
-DEBUG = True
+DEBUG = False
 
 def time_sleep(time_sec):
     """
@@ -307,7 +307,7 @@ for x in json_handle['areas']:
     # cycle though any defined IP Pools for this area
     #
     for ippool in (x['reserved-ip-pools']):
-        print(" Reserving IP Pool    : " + site_hierarchy + ", " + ippool["name"])
+        print(" Reserving IP Pool    : " + site_hierarchy + "/" + ippool["name"] + " - " + ippool["subnet"])
         reserve_ip_pool(site_hierarchy, ippool["subnet"], ippool["cidr"], ippool["parent"], ippool["name"])
 
     #
