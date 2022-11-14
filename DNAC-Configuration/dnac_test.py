@@ -307,7 +307,7 @@ for x in json_handle['areas']:
     # cycle though any defined IP Pools for this area
     #
     for ippool in (x['reserved-ip-pools']):
-        print(" Reserving IP Pool    : " + site_hierarchy + "/" + ippool["name"] + " - " + ippool["subnet"])
+        print(" Reserving IP Pool    : " + site_hierarchy + "/" + ippool["name"] + " - " + ippool["subnet"] + "/" + ippool["cidr"])
         reserve_ip_pool(site_hierarchy, ippool["subnet"], ippool["cidr"], ippool["parent"], ippool["name"])
 
     #
