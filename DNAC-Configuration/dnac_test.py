@@ -9,7 +9,7 @@ DNAC_URL = "https://198.18.133.101:443"
 DNAC_USER = "admin"
 DNAC_PASS = "C1sco12345"
 DNAC_AUTH = HTTPBasicAuth(DNAC_USER, DNAC_PASS)
-DEBUG = False
+DEBUG = True
 
 def time_sleep(time_sec):
     """
@@ -185,7 +185,7 @@ def set_network_settings(domain, dns1, dns2, ntpServer, dhcpServer, timezone, dn
         print(e)
     time_sleep(3)
     if (DEBUG):
-        print(network_settings_payload)
+        print(json.dumps(network_settings_payload, indent=4))
         print(response)
     time_sleep(10)
     return response
@@ -253,7 +253,7 @@ def reserve_ip_pool(hierarchy, subnet, prefix, parent, name):
         print(e)
     time_sleep(3)
     if (DEBUG):
-        print(global_pool_payload)
+        print(json.dumps(sub_pool_payload, indent="4"))
         print(response)
     return response
 
