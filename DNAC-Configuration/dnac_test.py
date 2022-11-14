@@ -112,7 +112,6 @@ def create_floor(floor_name, parent, number, dnac_api):
         'site': {
             'floor': {
                 'name': floor_name,
-                'number': number,
                 'parentName': parent,
                 "rfModel": "Cubes And Walled Offices"
             }
@@ -233,6 +232,31 @@ def create_global_ippool(ip_pool_name, ip_pool_address_space, ip_pool_cidr):
         print(response)
     return response
 
+def reserve_ip_pool(hierarchy, subnet, prefix, parent, name):
+    response = dnac_api.sites.get_site(name=hierarchy)
+    site_id = response['response'][0]['id']
+    # create an IP sub_pool for site_hierarchy
+    #ip_sub_pool_subnet = ip_sub_pool_cidr.split('/')[0]
+    #ip_sub_pool_mask = int(ip_sub_pool_cidr.split('/')[1])
+    sub_pool_payload = {
+        'name': name,
+        'type': 'Generic',
+        'ipv4GlobalPool': parent,
+        'ipv4Prefix': True,
+        'ipv6AddressSpace': False,
+        'ipv4PrefixLength': prefix,
+        'ipv4Subnet': subnet
+    }
+    try:
+        response = dnac_api.network_settings.reserve_ip_subpool(site_id=site_id, payload=sub_pool_payload)
+    except ApiError as e:
+        print(e)
+    time_sleep(3)
+    if (DEBUG):
+        print(global_pool_payload)
+        print(response)
+    return response
+
 # Create a DNACenterAPI "Connection Object"
 dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
 # get Cisco DNA Center Auth token
@@ -280,6 +304,13 @@ for x in json_handle['areas']:
     print(" Creating Area        : " + site_hierarchy)
     create_area(x['area'], x['parent'], dnac_api)
     #
+    # cycle though any defined IP Pools for this area
+    #
+    for ippool in (x['reserved-ip-pools']):
+        print(" Reserving IP Pool    : " + site_hierarchy + ", " + ippool["name"])
+        reserve_ip_pool(site_hierarchy, ippool["subnet"], ippool["cidr"], ippool["parent"], ippool["name"])
+
+    #
     # if this is a fabric site then create one
     #
     if (x['fabric_site'] == "True"):
@@ -300,9 +331,8 @@ for x in json_handle['areas']:
         #
         # Set the default authentication template
         #
-        print(" Set Auth Template    : " + site_hierarchy + " - Open Authentication")
-        create_auth_profile("Open Authentication", site_hierarchy, auth["token"])
-
+        print(" Set Auth Template    : " + site_hierarchy + " - No Authentication")
+        create_auth_profile("No Authentication", site_hierarchy, auth["token"])
     #
     # cycle though any defined buildings and add
     #
@@ -317,7 +347,6 @@ for x in json_handle['areas']:
             floor_hierarchy = building_hierarchy + "/" + str(floor['name'])
             print(" Creating Floor       : " + floor_hierarchy)
             create_floor(str(floor['name']), building_hierarchy, floor['number'], dnac_api)
-
 
 
 
