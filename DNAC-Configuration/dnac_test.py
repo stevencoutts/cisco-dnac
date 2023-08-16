@@ -5,7 +5,7 @@ from requests.auth import HTTPBasicAuth
 import json
 import time
 
-DNAC_URL = "https://198.18.133.101:443"
+DNAC_URL = "https://198.18.129.100:443"
 DNAC_USER = "admin"
 DNAC_PASS = "C1sco12345"
 DNAC_AUTH = HTTPBasicAuth(DNAC_USER, DNAC_PASS)
@@ -258,7 +258,7 @@ def reserve_ip_pool(hierarchy, subnet, prefix, parent, name):
     return response
 
 # Create a DNACenterAPI "Connection Object"
-dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.2.2.3', verify=False)
+dnac_api = DNACenterAPI(username=DNAC_USER, password=DNAC_PASS, base_url=DNAC_URL, version='2.3.3.0', verify=False)
 # get Cisco DNA Center Auth token
 dnac_auth = get_dnac_token(DNAC_AUTH)
 auth = get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS)
@@ -290,7 +290,7 @@ for x in json_handle['network-settings']:
 #
 for x in json_handle['global-ip-pools']:
     print(" Global IP Pool       : " + x["name"] + ", " + x["subnet"] + x["cidr"])
-    create_global_ippool(x["name"], x["subnet"], x["subnet"] + x["cidr"])
+    create_global_ippool(x["name"], "IPv4", x["subnet"] + x["cidr"])
 #
 # cycle through all areas defined in json
 #
