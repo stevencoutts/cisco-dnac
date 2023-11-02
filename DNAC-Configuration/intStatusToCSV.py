@@ -1,6 +1,8 @@
 # Set variables
 inputFilename = "output.txt"
+mappingFilename = "mapping.txt"
 begin = False
+debug = True
 # Open file
 with open(inputFilename) as f:
     # Loop
@@ -24,4 +26,5 @@ with open(inputFilename) as f:
             description = line.strip()[10:28]
             status = line.strip()[29:41]
             vlan = line.strip()[42:53]
-            print(interface.strip() + "," + description.strip() + "," + status.strip() + "," + vlan.strip())
+            if (debug == True):
+                print(interface.strip() + "," + description.strip() + "," + status.strip() + "," + vlan.strip())
