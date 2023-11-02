@@ -26,5 +26,6 @@ with open(inputFilename) as f:
             description = line.strip()[10:28]
             status = line.strip()[29:41]
             vlan = line.strip()[42:53]
+            # Debug Output
             if (debug == True):
                 print(interface.strip() + "," + description.strip() + "," + status.strip() + "," + vlan.strip())
