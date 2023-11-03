@@ -22,7 +22,7 @@ with open(inputFilename) as f:
         # If we have already found the beginning of the output, it isn't a --More-- line
         # and it isn't the headers repeated again, also ignore port-channels
         if begin is True and "--More--" not in line.strip() and not line.strip().startswith("Po"):
-            # Output from show int status is based on character count
+            # Output from show int status is based on character count, I hope this always the same
             interface = line.strip()[0:9]
             description = line.strip()[10:28]
             status = line.strip()[29:41]
