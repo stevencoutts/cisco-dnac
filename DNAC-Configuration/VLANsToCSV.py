@@ -1,6 +1,6 @@
 # Set variables
 inputFilename = "vlan.txt"
-begin = False
+needName = False
 debug = True
 # Open file
 with open(inputFilename) as f:
@@ -11,11 +11,14 @@ with open(inputFilename) as f:
         # End of file reached
         if not line:
             break
-        # Look for line before interface output begins, it should start with the word Port
-        # If it is that line, set begin variable to True
-        # We should only detect this once, the other times we can ignore
+        #Need to fix this to detect VLANs without a name
         if line.strip().startswith("vlan"):
             print (line.split(" ")[1].strip() + ",", end="")
-        if line.strip().startswith("name"):
+            needName = True
+        elif line.strip().startswith("name") and needName is True:
             print (line.split(" ")[2].strip())
+            needName = False
+        elif needName is True:
+            print ("")
+            needName is False
 
