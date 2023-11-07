@@ -19,6 +19,7 @@ with open(inputFilename) as f:
             ip=(ipandmask.split(" ")[0])
             mask=(ipandmask.split(" ")[1])
             print (ip + "," + mask)
-
+        elif line.strip().startswith("no ip address"):
+            print()
 
 
