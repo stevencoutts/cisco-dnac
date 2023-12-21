@@ -24,10 +24,11 @@ with open(inputFilename) as f:
         # and it isn't the headers repeated again, also ignore port-channels
         if begin is True and "--More--" not in line.strip() and not line.strip().startswith("Po"):
             # Output from show int status is based on character count, I hope this always the same
+            # Count not always the same :) Need to ditch this script and use running-config instead, bodge for now
             interface = line.strip()[0:9]
-            description = line.strip()[10:28]
-            status = line.strip()[29:41]
-            vlan = line.strip()[42:53]
+            description = line.strip()[10:31]
+            status = line.strip()[32:43]
+            vlan = line.strip()[43:55]
             # Debug Output
             if debug is True:
                 print(interface.strip() + "," + description.strip() + "," + status.strip() + "," + vlan.strip())
