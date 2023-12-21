@@ -12,7 +12,7 @@ with open(inputFilename) as f:
         if not line:
             break
         if line.strip().startswith("ip route"):
-            print (line.split("Vlan")[1].strip())
+            print (line.split(" ")[2].strip() + "," + line.split(" ")[3].strip() + "," + line.split(" ")[4].strip())
             needName = True
 
 

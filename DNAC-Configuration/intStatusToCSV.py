@@ -3,6 +3,7 @@ inputFilename = "output.txt"
 mappingFilename = "mapping.txt"
 begin = False
 debug = True
+mapping = False
 # Open file
 with open(inputFilename) as f:
     # Loop
@@ -30,17 +31,18 @@ with open(inputFilename) as f:
             # Debug Output
             if debug is True:
                 print(interface.strip() + "," + description.strip() + "," + status.strip() + "," + vlan.strip())
-            with open(mappingFilename) as m:
-                # Loop
-                while True:
-                    # Read line
-                    mline = m.readline()
-                    # End of file reached
-                    if not mline:
-                        break
-                    # if the mapping line is for this vlan
-                    if vlan.strip() in mline.split(",")[0]:
-                        # Debug
-                        if debug is True:
-                            print(mline.strip())
-                        print("--")
+            if mapping is True:
+                with open(mappingFilename) as m:
+                    # Loop
+                    while True:
+                        # Read line
+                        mline = m.readline()
+                        # End of file reached
+                        if not mline:
+                            break
+                        # if the mapping line is for this vlan
+                        if vlan.strip() in mline.split(",")[0]:
+                            # Debug
+                            if debug is True:
+                                print(mline.strip())
+                            print("--")
