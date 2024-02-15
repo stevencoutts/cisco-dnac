@@ -5,9 +5,9 @@ from requests.auth import HTTPBasicAuth
 import json
 import time
 
-DNAC_URL = "https://198.18.129.100:443"
-DNAC_USER = "admin"
-DNAC_PASS = "C1sco12345"
+DNAC_URL = "https://sandboxdnac2.cisco.com:443"
+DNAC_USER = "devnetuser"
+DNAC_PASS = "Cisco123!"
 DNAC_AUTH = HTTPBasicAuth(DNAC_USER, DNAC_PASS)
 DEBUG = False
 
@@ -264,7 +264,7 @@ dnac_auth = get_dnac_token(DNAC_AUTH)
 auth = get_auth_token(DNAC_URL, DNAC_USER, DNAC_PASS)
 
 # open json file
-json_handle = json.loads(open("DNAC-Configuration/working.json").read())
+json_handle = json.loads(open("working.json").read())
 
 print("Configuring DNAC from sd-fabric.json .....")
 print("------------------------------------------------------------")
