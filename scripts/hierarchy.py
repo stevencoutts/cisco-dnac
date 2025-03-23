@@ -144,7 +144,8 @@ def display_hierarchy(stdscr, hierarchy_output):
         # Current scroll position
         scroll_pos = 0
         
-        # Leave room for header and footer
+        # Set shorter timeout for getch() to make the UI more responsive 
+        stdscr.timeout(100)
         
         while True:
             # Clear screen
@@ -199,7 +200,13 @@ def display_hierarchy(stdscr, hierarchy_output):
             # Handle input
             key = stdscr.getch()
             
-            if key == curses.KEY_UP and scroll_pos > 0:
+            # Exit on 'q' immediately
+            if key == ord('q'):
+                return
+            # Also exit on ESC key
+            elif key == 27:  # ESC key
+                return
+            elif key == curses.KEY_UP and scroll_pos > 0:
                 scroll_pos -= 1
             elif key == curses.KEY_DOWN and scroll_pos < max_scroll:
                 scroll_pos += 1
@@ -207,8 +214,6 @@ def display_hierarchy(stdscr, hierarchy_output):
                 scroll_pos = max(0, scroll_pos - (display_height - 1))
             elif key == curses.KEY_NPAGE:  # Page Down
                 scroll_pos = min(max_scroll, scroll_pos + (display_height - 1))
-            elif key == ord('q'):
-                break
     except Exception as e:
         # Log any exceptions in the display function
         logging.error(f"Error in display_hierarchy: {str(e)}")

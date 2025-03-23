@@ -84,9 +84,7 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
                 env=env
             )
             
-            # Pause to let user see the results unless suppressed
-            if not suppress_prompts:
-                input("\nPress Enter to return to the menu...")
+            # No pause, immediately return to menu
             
             # Restart curses safely without assuming any previous state
             os.environ.setdefault('ESCDELAY', '25')  # Reduce ESC key delay
@@ -129,7 +127,7 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
                 print(f"Error running {script_path}:\n{str(e)}")
                 if hasattr(e, 'stderr') and e.stderr:
                     print(f"Error output:\n{e.stderr}")
-                input("\nPress Enter to return to the menu...")
+                    # No error pause
             
             # Restart curses safely
             os.environ.setdefault('ESCDELAY', '25')
@@ -163,7 +161,7 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             # Restore curses mode
             if not suppress_prompts:
                 print("\nOperation cancelled by user")
-                input("\nPress Enter to return to the menu...")
+                # No pause after cancellation
             
             # Restart curses safely
             os.environ.setdefault('ESCDELAY', '25')
@@ -382,11 +380,23 @@ def main_menu(stdscr) -> None:
             "List Network Devices": os.path.join(script_dir, "devices.py")
         }
         
+        # Site Hierarchy submenu items
+        site_hierarchy_items = [
+            MenuItem(
+                label="List Hierarchy",
+                action_fn=lambda window: run_script(window, os.path.join(script_dir, "hierarchy.py"), "Site Hierarchy", False, True)
+            ),
+            MenuItem(
+                label="Add Site",
+                action_fn=lambda window: run_script(window, os.path.join(script_dir, "add_site_curses.py") + " --from-menu", "Add Site", False, True)
+            )
+        ]
+        
         # Create main menu items for scripts
         device_menu_items = [
             MenuItem(
                 label=name,
-                action_fn=lambda window, path=path: run_script(window, path, name, False)
+                action_fn=lambda window, path=path: run_script(window, path, name, False, True)
             )
             for name, path in scripts.items()
         ]
@@ -395,20 +405,8 @@ def main_menu(stdscr) -> None:
         fabric_menu_items = [
             MenuItem(
                 label="List SDA Segments",
-                action_fn=lambda window: run_script(window, os.path.join(script_dir, "segment.py"), "List SDA Segments", False),
+                action_fn=lambda window: run_script(window, os.path.join(script_dir, "segment.py"), "List SDA Segments", False, True),
                 requires_fabric=True
-            )
-        ]
-        
-        # Site Hierarchy submenu items
-        site_hierarchy_items = [
-            MenuItem(
-                label="List Hierarchy",
-                action_fn=lambda window: run_script(window, os.path.join(script_dir, "hierarchy.py"), "Site Hierarchy", False)
-            ),
-            MenuItem(
-                label="Add Site",
-                action_fn=lambda window: run_script(window, os.path.join(script_dir, "add_site_curses.py") + " --from-menu", "Add Site", False, True)
             )
         ]
         
