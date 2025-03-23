@@ -88,4 +88,20 @@ def restore_output(old_stdout: Any, old_stderr: Any) -> None:
     sys.stdout.close()
     sys.stderr.close()
     sys.stdout = old_stdout
-    sys.stderr = old_stderr 
+    sys.stderr = old_stderr
+
+def find_in_list(items: List[Dict[str, Any]], id_ref: str) -> Optional[Dict[str, Any]]:
+    """
+    Find an item in a list by its ID reference.
+    
+    Args:
+        items: List of dictionaries to search through
+        id_ref: ID reference to look for
+        
+    Returns:
+        The matching item or None if not found
+    """
+    for item in items:
+        if item.get('id') == id_ref or item.get('idRef') == id_ref:
+            return item
+    return None 

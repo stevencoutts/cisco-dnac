@@ -4,7 +4,7 @@ Fabric detection module for Cisco Catalyst Centre SDA.
 Author: Steven Coutts
 """
 from typing import Dict, Any
-from dnac.core.api import ApiClient
+from dnac.core.api import Dnac
 
 def is_fabric_enabled(config: Dict[str, Any]) -> bool:
     """
@@ -13,14 +13,36 @@ def is_fabric_enabled(config: Dict[str, Any]) -> bool:
     This checks for the presence of virtual networks, which indicates
     that SDA is enabled and configured.
     """
-    client = ApiClient(config)
+    # Extract server and auth details
+    server_config = config.get('server', {})
+    host = server_config.get('host')
     
-    # Try to authenticate
-    if not client.authenticate():
+    auth_config = config.get('auth', {})
+    username = auth_config.get('username')
+    password = auth_config.get('password')
+    
+    if not all([host, username, password]):
         return False
     
-    # Check for virtual networks
-    vn_data = client.get("dna/intent/api/v2/virtual-network")
-    
-    # If we get a valid response with data, SDA is enabled
-    return bool(vn_data and isinstance(vn_data, list) and len(vn_data) > 0) 
+    try:
+        # Initialize DNAC client
+        dnac = Dnac(host)
+        
+        # Set SSL verification based on config
+        dnac.verify = server_config.get('verify_ssl', False)
+        
+        # Login and get token
+        dnac.login(username, password)
+        
+        # Try to get virtual networks which only exist with SDA
+        response = dnac.get("virtual-network", ver="v2")
+        
+        # Check if response indicates SDA is enabled
+        if hasattr(response, 'response') and hasattr(response.response, 'json'):
+            data = response.response.json()
+            return isinstance(data, list) and len(data) > 0
+        
+        return False
+        
+    except Exception:
+        return False 
