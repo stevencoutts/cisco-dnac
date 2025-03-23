@@ -32,7 +32,7 @@ class MenuItem:
             return self.action_fn(window)
         return None
 
-def run_script(window, script_path: str, title: str = None, interactive: bool = False) -> None:
+def run_script(window, script_path: str, title: str = None, interactive: bool = False, suppress_prompts: bool = False) -> None:
     """
     Run a Python script and display its output.
     
@@ -41,6 +41,7 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
         script_path: Path to the script to run (can include arguments)
         title: Optional title for the output window
         interactive: Whether the script requires interactive input
+        suppress_prompts: Whether to suppress "Running..." and "Press Enter" prompts
     """
     if title is None:
         # Extract base script name without arguments
@@ -75,7 +76,10 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
         if interactive or is_curses_script:
             # Completely exit curses mode
             curses.endwin()
-            print(f"\n==== Running {os.path.basename(script_file)} ====\n")
+            
+            # Show running message unless suppressed
+            if not suppress_prompts:
+                print(f"\n==== Running {os.path.basename(script_file)} ====\n")
             
             # Run the script allowing direct user interaction
             result = subprocess.run(
@@ -83,8 +87,9 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
                 env=env
             )
             
-            # Pause to let user see the results
-            input("\nPress Enter to return to the menu...")
+            # Pause to let user see the results unless suppressed
+            if not suppress_prompts:
+                input("\nPress Enter to return to the menu...")
             
             # Completely reinitialize curses
             stdscr = curses.initscr()
@@ -95,10 +100,14 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             curses.curs_set(0)
             initialize_colors()
             
+            # Restore navy blue background
+            stdscr.bkgd(' ', get_color(ColorPair.NORMAL))
+            
             # Force a full redraw
             stdscr.clear()
             stdscr.refresh()
             window.clear()
+            window.bkgd(' ', get_color(ColorPair.NORMAL))
             window.refresh()
         else:
             # For non-interactive scripts, capture output
@@ -116,8 +125,9 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
     except subprocess.CalledProcessError as e:
         if interactive or is_curses_script:
             # Already in terminal mode
-            print(f"Error running {script_path}:\n{str(e)}\n{e.stderr}")
-            input("\nPress Enter to return to the menu...")
+            if not suppress_prompts:
+                print(f"Error running {script_path}:\n{str(e)}\n{e.stderr}")
+                input("\nPress Enter to return to the menu...")
             
             # Completely reinitialize curses
             stdscr = curses.initscr()
@@ -128,10 +138,14 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             curses.curs_set(0)
             initialize_colors()
             
+            # Restore navy blue background
+            stdscr.bkgd(' ', get_color(ColorPair.NORMAL))
+            
             # Force a full redraw
             stdscr.clear()
             stdscr.refresh()
             window.clear()
+            window.bkgd(' ', get_color(ColorPair.NORMAL))
             window.refresh()
         else:
             # Handle script error in curses mode
@@ -140,8 +154,9 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
     except KeyboardInterrupt:
         if interactive or is_curses_script:
             # Restore curses mode
-            print("\nOperation cancelled by user")
-            input("\nPress Enter to return to the menu...")
+            if not suppress_prompts:
+                print("\nOperation cancelled by user")
+                input("\nPress Enter to return to the menu...")
             
             # Completely reinitialize curses
             stdscr = curses.initscr()
@@ -152,109 +167,125 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             curses.curs_set(0)
             initialize_colors()
             
+            # Restore navy blue background
+            stdscr.bkgd(' ', get_color(ColorPair.NORMAL))
+            
             # Force a full redraw
             stdscr.clear()
             stdscr.refresh()
             window.clear()
+            window.bkgd(' ', get_color(ColorPair.NORMAL))
             window.refresh()
 
 def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: bool, title_text: str = "Cisco Catalyst Centre Tools", breadcrumb: str = None) -> None:
     """
-    Draw the menu with the current selection.
+    Draw a menu with the provided items.
     
     Args:
-        window: The curses window to draw on
+        window: The curses window
         items: List of menu items
-        selected_idx: Index of the currently selected item
-        fabric_enabled: Whether fabric is enabled on DNAC
-        title_text: Title to display at the top
-        breadcrumb: Navigation breadcrumb path
+        selected_idx: Currently selected index
+        fabric_enabled: Whether fabric is enabled
+        title_text: Title text for the menu
+        breadcrumb: Optional breadcrumb path
     """
+    # Set background and clear window
+    window.bkgd(' ', get_color(ColorPair.NORMAL))
     window.clear()
+    
+    # Get window dimensions
     h, w = window.getmaxyx()
     
-    # Draw title
-    try:
-        window.attron(get_color(ColorPair.HEADER, bold=True))
-        window.addstr(0, (w - len(title_text)) // 2, title_text)
-        window.attroff(get_color(ColorPair.HEADER, bold=True))
-    except curses.error:
-        pass
+    # Draw title bar with background
+    window.attron(get_color(ColorPair.HEADER, bold=True))
+    for x in range(w):
+        window.addstr(0, x, " ")
+    window.addstr(0, (w - len(title_text)) // 2, title_text)
+    window.attroff(get_color(ColorPair.HEADER, bold=True))
     
-    # Draw breadcrumb if available
+    # Draw breadcrumb if provided
     if breadcrumb:
-        try:
-            window.addstr(1, 2, breadcrumb)
-        except curses.error:
-            pass
+        # Add a subtle separator line with a gradient effect
+        window.attron(get_color(ColorPair.NORMAL))
+        for x in range(w):
+            window.addstr(1, x, "─")
+        window.attroff(get_color(ColorPair.NORMAL))
+        
+        # Display breadcrumb with styling
+        window.attron(get_color(ColorPair.HIGHLIGHT))
+        window.addstr(2, 2, breadcrumb)
+        window.attroff(get_color(ColorPair.HIGHLIGHT))
+        
+        # Start drawing menu items below the breadcrumb
+        start_y = 4
+    else:
+        # Start drawing menu items below title
+        start_y = 2
     
-    # Add fabric status indicator
-    draw_status_indicator(
-        window, 
-        fabric_enabled, 
-        text_enabled="● FABRIC ENABLED",
-        text_disabled="○ FABRIC DISABLED",
-        y=1,
-        x=w-20 if w > 20 else 0
-    )
+    # Calculate available menu height
+    menu_height = h - start_y - 2  # Leave room for status at bottom
     
-    # Calculate visible range
-    visible_height = h - 5  # Leave space for title, breadcrumb and instructions
-    total_height = len(items)
+    # Calculate visible range based on selected item
+    visible_count = min(len(items), menu_height)
     
-    # Keep selected item in view
-    if selected_idx < 0:
-        selected_idx = 0
-    elif selected_idx >= total_height:
-        selected_idx = total_height - 1
+    # Simple centering around selected item
+    half_visible = visible_count // 2
+    start_idx = max(0, selected_idx - half_visible)
     
-    # Calculate start index to keep selected item centered when possible
-    start_idx = max(0, min(selected_idx - visible_height // 2, total_height - visible_height))
-    end_idx = min(total_height, start_idx + visible_height)
+    # Adjust if we're near the end of the list
+    if start_idx + visible_count > len(items):
+        start_idx = max(0, len(items) - visible_count)
     
     # Draw menu items
-    for idx, item in enumerate(items[start_idx:end_idx], start=start_idx):
-        y = 3 + (idx - start_idx)  # Start at y=3 to leave space for title and breadcrumb
-        if y >= h - 2:  # Leave space for instructions
-            break
-            
-        # Determine if item should be disabled
-        disabled = item.requires_fabric and not fabric_enabled
+    for i in range(min(visible_count, len(items))):
+        idx = start_idx + i
+        item = items[idx]
+        y = start_y + i
         
-        # Draw item with appropriate styling
-        try:
-            if disabled:
-                # Draw as disabled
-                window.attron(get_color(ColorPair.DISABLED))
-                window.addstr(y, (w - len(item.label) - 10) // 2, f"{item.label} (disabled)")
-                window.attroff(get_color(ColorPair.DISABLED))
-            else:
-                # Draw normally
-                label = item.label
-                if item.has_submenu:
-                    label = f"{label} ▶"
-                draw_menu_item(window, label, y, idx == selected_idx)
-        except curses.error:
-            continue
+        # Check if this item is disabled due to fabric requirement
+        is_disabled = item.requires_fabric and not fabric_enabled
+        
+        if is_disabled:
+            # Draw as disabled
+            window.attron(get_color(ColorPair.DISABLED))
+            disabled_label = f"{item.label} (Requires Fabric)"
+            window.addstr(y, (w - len(disabled_label)) // 2, disabled_label)
+            window.attroff(get_color(ColorPair.DISABLED))
+        else:
+            # Draw normally
+            label = item.label
+            if item.has_submenu:
+                label = f"{label} ▶"
+            draw_menu_item(window, label, y, idx == selected_idx)
     
-    # Draw scroll indicators if needed
-    if start_idx > 0:
-        try:
-            window.addstr(2, 2, "↑")
-        except curses.error:
-            pass
-    if end_idx < total_height:
-        try:
-            window.addstr(h-3, 2, "↓")
-        except curses.error:
-            pass
+    # Draw scrolling indicators if needed
+    if len(items) > visible_count:
+        if start_idx > 0:
+            # Show up arrow to indicate more items above
+            window.attron(get_color(ColorPair.NORMAL))
+            window.addstr(start_y - 1, w // 2, "▲")
+            window.attroff(get_color(ColorPair.NORMAL))
+        
+        if start_idx + visible_count < len(items):
+            # Show down arrow to indicate more items below
+            window.attron(get_color(ColorPair.NORMAL))
+            window.addstr(start_y + visible_count, w // 2, "▼")
+            window.attroff(get_color(ColorPair.NORMAL))
     
-    # Draw instructions
-    try:
-        window.addstr(h-2, 2, "Use ↑↓ to navigate, Enter to select, Backspace/Esc to go back, q to quit")
-    except curses.error:
-        pass
+    # Draw status indicator at bottom
+    status_y = h - 1
+    draw_status_indicator(window, fabric_enabled, 
+                         text_enabled="● FABRIC ENABLED", 
+                         text_disabled="● FABRIC DISABLED",
+                         y=status_y - 1, x=2)
     
+    # Draw legend at bottom
+    legend_text = "↑↓: Navigate  Enter: Select  Esc/q: Quit"
+    window.attron(get_color(ColorPair.HIGHLIGHT))
+    window.addstr(status_y, (w - len(legend_text)) // 2, legend_text)
+    window.attroff(get_color(ColorPair.HIGHLIGHT))
+    
+    # Refresh window
     window.refresh()
 
 def display_submenu(window, parent_item: MenuItem, fabric_enabled: bool, breadcrumb_path: str) -> None:
@@ -344,6 +375,11 @@ def main_menu(stdscr) -> None:
     curses.curs_set(0)
     initialize_colors()
     
+    # Set up navy blue background
+    stdscr.bkgd(' ', get_color(ColorPair.NORMAL))
+    stdscr.clear()
+    stdscr.refresh()
+    
     config = load_config()
     
     # Check if fabric is enabled (with loading screen)
@@ -381,7 +417,7 @@ def main_menu(stdscr) -> None:
         ),
         MenuItem(
             label="Add Site",
-            action_fn=lambda window: run_script(window, os.path.join(script_dir, "add_site_curses.py") + " --from-menu", "Add Site", False)
+            action_fn=lambda window: run_script(window, os.path.join(script_dir, "add_site_curses.py") + " --from-menu", "Add Site", False, True)
         )
     ]
     

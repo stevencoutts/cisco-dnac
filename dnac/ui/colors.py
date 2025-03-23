@@ -25,17 +25,48 @@ def initialize_colors() -> None:
     curses.start_color()
     curses.use_default_colors()  # Use terminal's default colors
     
+    # Define base colors - using extended color pairs where available
+    # Modern color scheme using more pleasing colors
+    
+    # Base colors
+    BLACK = curses.COLOR_BLACK
+    WHITE = curses.COLOR_WHITE
+    
+    # Modern blue shade for primary elements
+    ROYAL_BLUE = curses.COLOR_BLUE
+    
+    # Darker blue for headers and background
+    NAVY_BLUE = 18 if curses.COLORS >= 256 else curses.COLOR_BLUE
+    DARK_NAVY = 17 if curses.COLORS >= 256 else curses.COLOR_BLACK
+    
+    # Success/positive action color
+    TEAL = 30 if curses.COLORS >= 256 else curses.COLOR_GREEN
+    
+    # Warning/caution color
+    AMBER = 208 if curses.COLORS >= 256 else curses.COLOR_YELLOW
+    
+    # Error/negative action color
+    CRIMSON = 160 if curses.COLORS >= 256 else curses.COLOR_RED
+    
+    # Highlight/accent color
+    PURPLE = 93 if curses.COLORS >= 256 else curses.COLOR_MAGENTA
+    
+    # Subtle colors for inactive/background elements
+    DARK_GRAY = 236 if curses.COLORS >= 256 else curses.COLOR_BLACK
+    LIGHT_GRAY = 250 if curses.COLORS >= 256 else curses.COLOR_WHITE
+    
+    # Use DARK_NAVY as the default background color for all pairs
     # Define color pairs
-    curses.init_pair(ColorPair.HEADER.value, curses.COLOR_WHITE, curses.COLOR_BLUE)
-    curses.init_pair(ColorPair.SUCCESS.value, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(ColorPair.ERROR.value, curses.COLOR_RED, curses.COLOR_BLACK)
-    curses.init_pair(ColorPair.HIGHLIGHT.value, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-    curses.init_pair(ColorPair.LOGO.value, curses.COLOR_CYAN, curses.COLOR_BLACK)
-    curses.init_pair(ColorPair.NORMAL.value, curses.COLOR_WHITE, curses.COLOR_BLACK)
-    curses.init_pair(ColorPair.SELECTED.value, curses.COLOR_BLACK, curses.COLOR_WHITE)
-    curses.init_pair(ColorPair.PROGRESS.value, curses.COLOR_BLUE, curses.COLOR_BLACK)
-    curses.init_pair(ColorPair.DISABLED.value, curses.COLOR_RED, curses.COLOR_BLACK)
-    curses.init_pair(ColorPair.WARNING.value, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+    curses.init_pair(ColorPair.HEADER.value, WHITE, NAVY_BLUE)
+    curses.init_pair(ColorPair.SUCCESS.value, TEAL, DARK_NAVY)
+    curses.init_pair(ColorPair.ERROR.value, CRIMSON, DARK_NAVY)
+    curses.init_pair(ColorPair.HIGHLIGHT.value, PURPLE, DARK_NAVY)
+    curses.init_pair(ColorPair.LOGO.value, ROYAL_BLUE, DARK_NAVY)
+    curses.init_pair(ColorPair.NORMAL.value, LIGHT_GRAY, DARK_NAVY)
+    curses.init_pair(ColorPair.SELECTED.value, WHITE, ROYAL_BLUE)
+    curses.init_pair(ColorPair.PROGRESS.value, TEAL, DARK_NAVY)
+    curses.init_pair(ColorPair.DISABLED.value, CRIMSON, DARK_NAVY)
+    curses.init_pair(ColorPair.WARNING.value, AMBER, DARK_NAVY)
 
 def get_color(color: ColorPair, bold: bool = False) -> int:
     """Get the attribute for a specific color, optionally with bold."""

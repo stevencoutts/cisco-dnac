@@ -113,24 +113,49 @@ def draw_menu_item(window, label: str, y: int, is_selected: bool, x: int = None)
         window.attroff(get_color(ColorPair.NORMAL))
 
 def draw_status_indicator(window, enabled: bool, text_enabled: str = "● ENABLED", 
-                         text_disabled: str = "○ DISABLED", y: int = 0, x: Optional[int] = None) -> None:
-    """Draw a status indicator showing enabled/disabled state."""
+                      text_disabled: str = "○ DISABLED", y: int = None, x: int = None) -> None:
+    """
+    Draw a status indicator showing enabled/disabled state.
+    
+    Args:
+        window: The curses window to draw on
+        enabled: Whether the status is enabled
+        text_enabled: Text to display when enabled
+        text_disabled: Text to display when disabled
+        y: Optional y position (defaults to top-right)
+        x: Optional x position (defaults to calculated position)
+    """
     h, w = window.getmaxyx()
     
+    # Default position in top-right corner
+    if y is None:
+        y = 1
+    
+    # Create a box for the status
     status_text = text_enabled if enabled else text_disabled
-    color = ColorPair.SUCCESS if enabled else ColorPair.DISABLED
     
-    # Set default x position if not specified
+    # Calculate default x position if not provided
     if x is None:
-        x = w - len(status_text) - 2
+        x = w - len(status_text) - 4  # With some padding
     
-    # Ensure we don't exceed window boundaries
-    if y < 0 or y >= h or x < 0:
-        return
-    
+    # Draw a background box for the status
     try:
+        # Use proper color based on status
+        if enabled:
+            color = ColorPair.SUCCESS
+            prefix = "● "
+        else:
+            color = ColorPair.ERROR  # Use ERROR (red) instead of DISABLED for better visibility
+            prefix = "● "  # Use filled circle for both states, but with different colors
+        
+        # Draw with proper styling
         window.attron(get_color(color, bold=True))
-        window.addstr(y, x, status_text)
+        
+        # Draw status label
+        status_label = prefix + (text_enabled.replace("●", "") if enabled else text_disabled.replace("●", "").replace("○", ""))
+        window.addstr(y, x, status_label)
+        
         window.attroff(get_color(color, bold=True))
     except curses.error:
+        # Handle potential drawing errors
         pass 
