@@ -177,11 +177,36 @@ except TimeoutError as e:
 
 The repository includes several sample scripts demonstrating common use cases:
 
+- `menu.py`: Interactive terminal menu for running other scripts
 - `segment.py`: Display SDA segments
 - `devices.py`: List network devices from Catalyst Centre with detailed information
 - `pool-import.py`: Add global IP pools and assign them to virtual networks from CSV file
 - `cfs-import.py`: Configure Campus fabric edge ports from CSV file
 - `template.py`: Provision a user template without using network profiles
+
+### Using the menu.py Script
+
+The `menu.py` script provides an interactive terminal-based menu system for running other scripts in the repository.
+
+1. Make sure you have the required configuration in your `config.yaml` file (see devices.py section for details)
+
+2. Run the menu:
+```bash
+python menu.py
+```
+
+3. Navigation:
+   - Use ↑↓ arrow keys to navigate between options
+   - Press Enter to select an option
+   - Press 'q' to quit
+   - When viewing script output:
+     - Use ↑↓ to scroll through the output
+     - Press 'q' to return to the main menu
+
+The menu provides easy access to:
+- List Network Devices
+- List SDA Segments
+- Exit
 
 ### Using the devices.py Script
 
