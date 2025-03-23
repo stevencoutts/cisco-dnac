@@ -395,18 +395,25 @@ def main_menu(stdscr) -> None:
     
     # Map of script labels to paths
     scripts = {
-        "List Network Devices": os.path.join(script_dir, "devices.py"),
-        "List SDA Segments": os.path.join(script_dir, "segment.py")
+        "List Network Devices": os.path.join(script_dir, "devices.py")
     }
     
     # Create main menu items for scripts
     device_menu_items = [
         MenuItem(
             label=name,
-            action_fn=lambda window, path=path: run_script(window, path, name, False),
-            requires_fabric=name == "List SDA Segments"
+            action_fn=lambda window, path=path: run_script(window, path, name, False)
         )
         for name, path in scripts.items()
+    ]
+    
+    # Fabric Configuration submenu items
+    fabric_menu_items = [
+        MenuItem(
+            label="List SDA Segments",
+            action_fn=lambda window: run_script(window, os.path.join(script_dir, "segment.py"), "List SDA Segments", False),
+            requires_fabric=True
+        )
     ]
     
     # Site Hierarchy submenu items
@@ -427,6 +434,12 @@ def main_menu(stdscr) -> None:
         MenuItem(
             label="Site Hierarchy",
             submenu=site_hierarchy_items
+        ),
+        # Fabric Configuration menu with submenu
+        MenuItem(
+            label="Fabric Configuration",
+            submenu=fabric_menu_items,
+            requires_fabric=True
         )
     ] + device_menu_items + [
         # Add configuration editor
