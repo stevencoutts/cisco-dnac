@@ -4,4 +4,5 @@ pytest>=7.4.0
 black>=23.11.0
 flake8>=6.1.0
 mypy>=1.7.0
-pyyaml>=6.0.1 
+pyyaml>=6.0.1
+windows-curses>=2.3.1; platform_system == "Windows" 
