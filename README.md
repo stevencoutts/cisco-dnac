@@ -184,24 +184,85 @@ The repository includes several sample scripts demonstrating common use cases:
 
 ## Development
 
-### Requirements
+### Prerequisites
 
-- Python 3.7+
-- requests
-- typing-extensions (for Python < 3.8)
+- Python 3.7 or higher
+- pip (Python package installer)
 
-### Running Tests
+### Setting Up Development Environment
 
+1. Clone the repository:
 ```bash
-python -m pytest tests/
+git clone https://github.com/yourusername/dnac.git
+cd dnac
 ```
 
-### Code Style
+2. Create and activate virtual environment:
+```bash
+# Using the setup script
+./setup.sh
 
-The project uses:
-- Black for code formatting
-- Flake8 for linting
-- MyPy for type checking
+# Or manually
+python3 -m venv venv
+source venv/bin/activate  # On Unix/macOS
+# or
+.\venv\Scripts\activate  # On Windows
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### Development Tools
+
+The project uses several development tools to ensure code quality:
+
+#### Code Formatting
+```bash
+# Format code using Black
+black .
+```
+
+#### Type Checking
+```bash
+# Check types using MyPy
+mypy .
+```
+
+#### Linting
+```bash
+# Lint code using Flake8
+flake8
+```
+
+#### Testing
+```bash
+# Run tests using pytest
+pytest
+```
+
+### Project Structure
+
+```
+dnac/
+├── venv/                  # Virtual environment (not in git)
+├── dna.py                # Main library code
+├── requirements.txt      # Project dependencies
+├── setup.sh             # Environment setup script
+├── .gitignore           # Git ignore rules
+└── tests/               # Test directory
+```
+
+### Dependencies
+
+The project requires the following main dependencies:
+- `requests>=2.31.0`: For HTTP requests
+- `typing-extensions>=4.8.0`: For type hints
+- `pytest>=7.4.0`: For testing
+- `black>=23.11.0`: For code formatting
+- `flake8>=6.1.0`: For linting
+- `mypy>=1.7.0`: For type checking
 
 ## Contributing
 
@@ -215,7 +276,6 @@ The project uses:
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Authors
+## Author
 
-Steven Coutts
 Tim Dorssers
