@@ -4,7 +4,17 @@ import sys
 import subprocess
 import os
 import yaml
+import json
+import requests
+import time
+import urllib3
+import warnings
 from typing import List, Tuple, Dict, Any
+
+# Suppress warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=ResourceWarning)
 
 def load_config() -> Dict[str, Any]:
     """Load configuration from config.yaml file."""
@@ -24,6 +34,82 @@ def load_config() -> Dict[str, Any]:
                 'password': 'Cisco123!'
             }
         }
+
+def check_fabric_enabled() -> bool:
+    """Check if Fabric/SDA is enabled on the Catalyst Centre."""
+    try:
+        config = load_config()
+        
+        # Build the URL
+        host = config['server']['host']
+        if not host.startswith('http'):
+            host = f"https://{host}"
+        if host.endswith('/'):
+            host = host[:-1]
+            
+        port = config['server'].get('port', 443)
+        base_url = f"{host}:{port}"
+        
+        # Authentication
+        auth_url = f"{base_url}/dna/system/api/v1/auth/token"
+        username = config['auth']['username']
+        password = config['auth']['password']
+        
+        verify_ssl = config['server'].get('verify_ssl', True)
+        
+        # Get auth token - with proper warning suppression
+        try:
+            auth_response = requests.post(
+                auth_url,
+                auth=(username, password),
+                verify=verify_ssl,
+                timeout=5  # Add timeout to prevent hanging
+            )
+            auth_response.raise_for_status()
+            token = auth_response.json().get('Token')
+            
+            if not token:
+                return False
+                
+            # Check for virtual networks (which indicates SDA/Fabric is enabled)
+            vn_url = f"{base_url}/dna/intent/api/v2/virtual-network"
+            headers = {
+                'x-auth-token': token,
+                'Content-Type': 'application/json'
+            }
+            
+            vn_response = requests.get(
+                vn_url,
+                headers=headers,
+                verify=verify_ssl,
+                timeout=5  # Add timeout to prevent hanging
+            )
+            
+            # If we get a successful response with data, SDA is enabled
+            if vn_response.status_code == 200:
+                data = vn_response.json()
+                # Check if response contains any virtual networks
+                return bool(data and isinstance(data, list) and len(data) > 0)
+            
+            return False
+        except requests.exceptions.SSLError:
+            # Suppress SSL errors, just return False
+            return False
+        except requests.exceptions.ConnectionError:
+            # Suppress connection errors, just return False
+            return False
+        except requests.exceptions.Timeout:
+            # Handle timeout errors
+            return False
+        except requests.exceptions.RequestException:
+            # Handle all other request errors
+            return False
+        except json.JSONDecodeError:
+            # Handle JSON parsing errors
+            return False
+    except Exception:
+        # In case of any error, assume SDA is not enabled
+        return False
 
 def save_config(config: Dict[str, Any]) -> None:
     """Save configuration to config.yaml file."""
@@ -252,7 +338,7 @@ def run_script(script_name: str) -> None:
         error_win.refresh()
         error_win.getch()
 
-def draw_menu(stdscr, selected_idx: int, options: List[str]) -> None:
+def draw_menu(stdscr, selected_idx: int, options: List[str], fabric_enabled: bool = False) -> None:
     """Draw the menu with the current selection."""
     stdscr.clear()
     h, w = stdscr.getmaxyx()
@@ -265,6 +351,26 @@ def draw_menu(stdscr, selected_idx: int, options: List[str]) -> None:
         stdscr.addstr(0, (w - len(title)) // 2, title)
     except curses.error:
         pass
+    
+    # Add fabric status indicator
+    if fabric_enabled:
+        fabric_status = "● FABRIC ENABLED"
+        try:
+            # Use color to highlight fabric status
+            stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+            stdscr.addstr(0, w - len(fabric_status) - 2, fabric_status)
+            stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+        except curses.error:
+            pass
+    else:
+        fabric_status = "○ FABRIC DISABLED"
+        try:
+            # Use color to show disabled status
+            stdscr.attron(curses.color_pair(3) | curses.A_BOLD)
+            stdscr.addstr(0, w - len(fabric_status) - 2, fabric_status)
+            stdscr.attroff(curses.color_pair(3) | curses.A_BOLD)
+        except curses.error:
+            pass
     
     # Calculate visible range
     visible_height = h - 4  # Leave space for title and instructions
@@ -318,7 +424,141 @@ def draw_menu(stdscr, selected_idx: int, options: List[str]) -> None:
 def main(stdscr):
     # Initialize color support
     curses.start_color()
+    curses.use_default_colors()  # Use terminal's default colors
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
+    curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)
+    curses.init_pair(4, curses.COLOR_CYAN, curses.COLOR_BLACK)
+    
+    # Setup the screen
+    curses.curs_set(0)  # Hide the cursor
+    stdscr.clear()
+    
+    # Create loading animation
+    h, w = stdscr.getmaxyx()
+    loading_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    frame_index = 0
+    
+    # Draw initial loading screen
+    title = "Cisco Catalyst Centre Tools"
+    loading_msg = "Starting up..."
+    
+    # Background check for fabric status
+    fabric_enabled = False
+    check_complete = False
+    
+    # Capture stdout/stderr to hide warning messages
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    sys.stdout = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, 'w')
+    
+    try:
+        # Animation loop
+        start_time = time.time()
+        while not check_complete:
+            stdscr.clear()
+            
+            # Draw title
+            try:
+                stdscr.attron(curses.color_pair(1) | curses.A_BOLD)
+                stdscr.addstr(h//2 - 3, (w - len(title))//2, title)
+                stdscr.attroff(curses.color_pair(1) | curses.A_BOLD)
+            except curses.error:
+                pass
+                
+            # Draw Cisco logo
+            logo = [
+                "     ██████╗██╗███████╗ ██████╗ ██████╗     ",
+                "    ██╔════╝██║██╔════╝██╔════╝██╔═══██╗    ",
+                "    ██║     ██║███████╗██║     ██║   ██║    ",
+                "    ██║     ██║╚════██║██║     ██║   ██║    ",
+                "    ╚██████╗██║███████║╚██████╗██████╔╝     ",
+                "     ╚═════╝╚═╝╚══════╝ ╚═════╝╚═════╝      "
+            ]
+            
+            try:
+                for i, line in enumerate(logo):
+                    stdscr.attron(curses.color_pair(4))
+                    stdscr.addstr(h//2 - 10 + i, (w - len(line))//2, line)
+                    stdscr.attroff(curses.color_pair(4))
+            except curses.error:
+                pass
+                
+            # Draw spinner animation
+            try:
+                spinner = loading_frames[frame_index % len(loading_frames)]
+                stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+                stdscr.addstr(h//2, (w - len(loading_msg) - 4)//2, f"{spinner} {loading_msg}")
+                stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+            except curses.error:
+                pass
+                
+            # Draw progress bar
+            progress_width = 40
+            elapsed_time = time.time() - start_time
+            # Progress linearly from 0-99% based on time elapsed (0-2 seconds)
+            progress = min(int((elapsed_time / 2.0) * 100), 99)  # Scale to reach ~99% at 2 seconds
+            filled_width = int(progress_width * progress / 100)
+            
+            try:
+                progress_bar = f"[{'■' * filled_width}{' ' * (progress_width - filled_width)}]"
+                stdscr.addstr(h//2 + 2, (w - progress_width - 2)//2, progress_bar)
+                progress_text = f"{progress}%"
+                stdscr.addstr(h//2 + 3, (w - len(progress_text))//2, progress_text)
+            except curses.error:
+                pass
+                
+            # Update frame and refresh
+            frame_index += 1
+            stdscr.refresh()
+            curses.napms(100)  # Update every 100ms
+            
+            # Check if we need to perform the actual fabric check
+            if not check_complete and elapsed_time > 2.0:  # After 2 seconds of animation
+                try:
+                    # Actually check the fabric status (this might take time)
+                    fabric_enabled = check_fabric_enabled()
+                except Exception:
+                    # If any error occurs during check, just assume it's disabled
+                    fabric_enabled = False
+                
+                check_complete = True
+                
+                # Show completed animation for a moment
+                stdscr.clear()
+                try:
+                    # Draw title
+                    stdscr.attron(curses.color_pair(1) | curses.A_BOLD)
+                    stdscr.addstr(h//2 - 3, (w - len(title))//2, title)
+                    stdscr.attroff(curses.color_pair(1) | curses.A_BOLD)
+                    
+                    # Draw logo
+                    for i, line in enumerate(logo):
+                        stdscr.attron(curses.color_pair(4))
+                        stdscr.addstr(h//2 - 10 + i, (w - len(line))//2, line)
+                        stdscr.attroff(curses.color_pair(4))
+                    
+                    # Draw complete message
+                    complete_msg = "Initialization complete!"
+                    stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+                    stdscr.addstr(h//2, (w - len(complete_msg))//2, complete_msg)
+                    stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+                    
+                    # Draw complete progress bar
+                    progress_bar = f"[{'■' * progress_width}]"
+                    stdscr.addstr(h//2 + 2, (w - progress_width - 2)//2, progress_bar)
+                    progress_text = "100%"
+                    stdscr.addstr(h//2 + 3, (w - len(progress_text))//2, progress_text)
+                    
+                    stdscr.refresh()
+                    curses.napms(1000)  # Show completion for 1 second
+                except curses.error:
+                    pass
+    finally:
+        # Restore stdout/stderr
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
     
     # Menu options
     options = [
@@ -329,7 +569,7 @@ def main(stdscr):
     ]
     
     current_idx = 0
-    draw_menu(stdscr, current_idx, options)
+    draw_menu(stdscr, current_idx, options, fabric_enabled)
     
     while True:
         key = stdscr.getch()
@@ -337,21 +577,111 @@ def main(stdscr):
         if key == curses.KEY_UP:
             if current_idx > 0:
                 current_idx -= 1
-                draw_menu(stdscr, current_idx, options)
+                draw_menu(stdscr, current_idx, options, fabric_enabled)
         elif key == curses.KEY_DOWN:
             if current_idx < len(options) - 1:
                 current_idx += 1
-                draw_menu(stdscr, current_idx, options)
+                draw_menu(stdscr, current_idx, options, fabric_enabled)
         elif key == ord('\n'):  # Enter key
             if current_idx == 0:
                 run_script("devices.py")
             elif current_idx == 1:
                 run_script("segment.py")
             elif current_idx == 2:
+                # Before editing config, save old config state
+                old_config = load_config()
+                
+                # Show editing interface
                 edit_config(stdscr)
+                
+                # Check if config was changed
+                new_config = load_config()
+                if (old_config.get('server') != new_config.get('server') or 
+                    old_config.get('auth') != new_config.get('auth')):
+                    
+                    # Config changed, show loading screen again
+                    stdscr.clear()
+                    loading_msg = "Reconnecting..."
+                    check_complete = False
+                    frame_index = 0
+                    start_time = time.time()
+                    
+                    # Capture stdout/stderr to hide warning messages
+                    old_stdout = sys.stdout
+                    old_stderr = sys.stderr
+                    sys.stdout = open(os.devnull, 'w')
+                    sys.stderr = open(os.devnull, 'w')
+                    
+                    try:
+                        # Re-run the animation loop for reconnection
+                        while not check_complete:
+                            stdscr.clear()
+                            
+                            # Draw title and spinner
+                            try:
+                                stdscr.attron(curses.color_pair(1) | curses.A_BOLD)
+                                stdscr.addstr(h//2 - 3, (w - len(title))//2, title)
+                                stdscr.attroff(curses.color_pair(1) | curses.A_BOLD)
+                                
+                                spinner = loading_frames[frame_index % len(loading_frames)]
+                                stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+                                stdscr.addstr(h//2, (w - len(loading_msg) - 4)//2, f"{spinner} {loading_msg}")
+                                stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+                                
+                                # Shorter animation for reconnecting
+                                elapsed_time = time.time() - start_time
+                                # Scale to reach ~99% at 1 second
+                                progress = min(int((elapsed_time / 1.0) * 100), 99)
+                                filled_width = int(progress_width * progress / 100)
+                                progress_bar = f"[{'■' * filled_width}{' ' * (progress_width - filled_width)}]"
+                                stdscr.addstr(h//2 + 2, (w - progress_width - 2)//2, progress_bar)
+                                
+                                # Add progress text
+                                progress_text = f"{progress}%"
+                                stdscr.addstr(h//2 + 3, (w - len(progress_text))//2, progress_text)
+                            except curses.error:
+                                pass
+                                
+                            # Update frame and refresh
+                            frame_index += 1
+                            stdscr.refresh()
+                            curses.napms(100)
+                            
+                            elapsed_time = time.time() - start_time
+                            if elapsed_time > 1.0:  # Only 1 second for reconnection
+                                try:
+                                    fabric_enabled = check_fabric_enabled()
+                                except Exception:
+                                    # If any error occurs during check, just assume it's disabled
+                                    fabric_enabled = False
+                                check_complete = True
+                                
+                                # Show completion briefly
+                                stdscr.clear()
+                                try:
+                                    # Draw complete message
+                                    complete_msg = "Reconnection complete!"
+                                    stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+                                    stdscr.addstr(h//2, (w - len(complete_msg))//2, complete_msg)
+                                    stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+                                    
+                                    # Draw complete progress bar
+                                    progress_bar = f"[{'■' * progress_width}]"
+                                    stdscr.addstr(h//2 + 2, (w - progress_width - 2)//2, progress_bar)
+                                    progress_text = "100%"
+                                    stdscr.addstr(h//2 + 3, (w - len(progress_text))//2, progress_text)
+                                    
+                                    stdscr.refresh()
+                                    curses.napms(800)  # Show briefly
+                                except curses.error:
+                                    pass
+                    finally:
+                        # Restore stdout/stderr
+                        sys.stdout = old_stdout
+                        sys.stderr = old_stderr
             elif current_idx == 3:
                 break
-            draw_menu(stdscr, current_idx, options)  # Redraw menu after script execution
+            draw_menu(stdscr, current_idx, options, fabric_enabled)  # Redraw menu after script execution
         elif key == ord('q'):
             break
 
