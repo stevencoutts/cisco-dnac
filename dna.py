@@ -1,7 +1,7 @@
 """
-This module implements a northbound API client manager for DNA Center.
+This module implements a northbound API client manager for Catalyst Centre
 
-The module provides a client interface for interacting with Cisco DNA Center's REST API.
+The module provides a client interface for interacting with Cisco Catalyst Centre's REST API.
 It handles authentication, request/response serialization, and task management.
 
 Basic Usage:
@@ -11,7 +11,7 @@ Basic Usage:
     >>> dnac.close()
 
 Or as a context manager:
-    >>> with dna.Dnac('10.0.0.1') as dnac:
+    >>> with dna.Dnac('https://10.0.0.1/') as dnac:
     ...     dnac.login('admin', 'password')
     ...     print(dnac.get('network-device/count'))
 """
@@ -36,7 +36,7 @@ T = TypeVar("T")
 
 @dataclass
 class TaskStatus:
-    """Represents the status of a DNA Center task."""
+    """Represents the status of a Catalyst Centre task."""
 
     task_id: str
     is_error: bool
@@ -48,7 +48,7 @@ class TaskStatus:
 
 
 class DnacError(Exception):
-    """Base exception for DNA Center API errors."""
+    """Base exception for Catalyst Centre API errors."""
 
     pass
 
@@ -100,23 +100,23 @@ class JsonObj(dict, Generic[T]):
 
 
 class Dnac(requests.Session):
-    """REST API session manager for DNA Center.
+    """REST API session manager for Catalyst Centre.
 
-    This class provides a session manager for interacting with Cisco DNA Center's
+    This class provides a session manager for interacting with Cisco Catalyst Centre's
     REST API. It handles authentication, request/response serialization, and task management.
 
     Args:
-        url: The base URL of the DNA Center instance
+        url: The base URL of the Catalyst Centre instance
 
     Raises:
         ValueError: If the URL is invalid
     """
 
     def __init__(self, url: str) -> None:
-        """Initialize the DNA Center client.
+        """Initialize the Catalyst Centre client.
 
         Args:
-            url: The base URL of the DNA Center instance
+            url: The base URL of the Catalyst Centre instance
 
         Raises:
             ValueError: If the URL is invalid
@@ -132,7 +132,7 @@ class Dnac(requests.Session):
         self.verify = False  # Ignore verifying the SSL certificate
 
     def login(self, username: str, password: str) -> None:
-        """Authenticate with DNA Center.
+        """Authenticate with Catalyst Centre.
 
         Args:
             username: The username for authentication
@@ -154,7 +154,7 @@ class Dnac(requests.Session):
         data: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> JsonObj:
-        """Send a request to the DNA Center API.
+        """Send a request to the Catalyst Centre API.
 
         Args:
             method: The HTTP method to use

@@ -1,6 +1,6 @@
 # dnac
 
-A modern Python client library for Cisco DNA Center's REST API. This library provides a type-safe, feature-rich interface for interacting with Cisco DNA Center, with support for authentication, request/response serialization, and task management.
+A modern Python client library for Cisco Catalyst Centre's REST API. This library provides a type-safe, feature-rich interface for interacting with Cisco Catalyst Centre, with support for authentication, request/response serialization, and task management.
 
 ## Features
 
