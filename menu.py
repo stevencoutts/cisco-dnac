@@ -540,7 +540,7 @@ def main(stdscr):
                         stdscr.attroff(curses.color_pair(4))
                     
                     # Draw complete message
-                    complete_msg = "Initialization complete!"
+                    complete_msg = "Initialisation complete!"
                     stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
                     stdscr.addstr(h//2, (w - len(complete_msg))//2, complete_msg)
                     stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
