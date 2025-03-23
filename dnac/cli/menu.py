@@ -422,12 +422,13 @@ def main_menu(stdscr) -> None:
     ]
     
     # Main menu items
-    menu_items = device_menu_items + [
-        # Site Hierarchy menu with submenu
+    menu_items = [
+        # Site Hierarchy menu with submenu (moved to top)
         MenuItem(
             label="Site Hierarchy",
             submenu=site_hierarchy_items
-        ),
+        )
+    ] + device_menu_items + [
         # Add configuration editor
         MenuItem(
             label="Edit Configuration",
