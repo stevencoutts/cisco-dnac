@@ -140,7 +140,7 @@ def draw_status_indicator(window, is_enabled: bool, text_enabled: str = "ENABLED
     window.attroff(get_color(color))
 
 def draw_standard_header_footer(window, title: str = "Cisco Catalyst Centre", subtitle: str = None,
-                              footer_text: str = None, fabric_enabled: bool = None) -> int:
+                              footer_text: str = None, fabric_enabled: bool = None, connected: bool = True) -> int:
     """
     Draw a standard header and footer for all screens to maintain consistent appearance.
     
@@ -150,6 +150,7 @@ def draw_standard_header_footer(window, title: str = "Cisco Catalyst Centre", su
         subtitle: Optional subtitle to display below the header
         footer_text: Optional footer text (defaults to navigation help)
         fabric_enabled: Whether fabric is enabled (if None, status indicator is not shown)
+        connected: Whether connected to Catalyst Centre
         
     Returns:
         int: The y-coordinate where content should start
@@ -191,12 +192,20 @@ def draw_standard_header_footer(window, title: str = "Cisco Catalyst Centre", su
     window.addstr(h-1, (w - len(footer_text)) // 2, footer_text)
     window.attroff(get_color(ColorPair.HIGHLIGHT))
     
+    # Draw connection status indicator
+    draw_status_indicator(window, connected, 
+                        text_enabled="● CONNECTED", 
+                        text_disabled="● DISCONNECTED",
+                        y=h-2, x=2)
+    
     # Draw fabric status indicator if provided
     if fabric_enabled is not None:
+        # Position the fabric status to the right of the connection status
+        fabric_x = 16  # Adjust this value based on the width of connection status
         draw_status_indicator(window, fabric_enabled, 
                             text_enabled="● FABRIC ENABLED", 
                             text_disabled="● FABRIC DISABLED",
-                            y=h-2, x=2)
+                            y=h-2, x=fabric_x)
     
     # Return where content should start
     return content_start_y 

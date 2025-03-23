@@ -189,7 +189,7 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
         error_message = f"Unexpected error running {script_path}:\n\n{str(e)}\n\nType: {type(e)}"
         show_scrollable_output(window, error_message, "Error")
 
-def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: bool, title_text: str = "Cisco Catalyst Centre Tools", breadcrumb: str = None) -> None:
+def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: bool, title_text: str = "Cisco Catalyst Centre Tools", breadcrumb: str = None, connected: bool = True) -> None:
     """
     Draw a menu with the provided items.
     
@@ -200,6 +200,7 @@ def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: 
         fabric_enabled: Whether fabric is enabled
         title_text: Title text for the menu
         breadcrumb: Optional breadcrumb path
+        connected: Whether connected to Catalyst Centre
     """
     # Set background and clear window
     window.bkgd(' ', get_color(ColorPair.NORMAL))
@@ -213,7 +214,8 @@ def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: 
         window, 
         title=title_text,
         subtitle=breadcrumb,
-        fabric_enabled=fabric_enabled
+        fabric_enabled=fabric_enabled,
+        connected=connected
     )
     
     # Calculate available menu height
@@ -269,7 +271,7 @@ def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: 
     # Refresh window
     window.refresh()
 
-def display_submenu(window, parent_item: MenuItem, fabric_enabled: bool, breadcrumb_path: str) -> None:
+def display_submenu(window, parent_item: MenuItem, fabric_enabled: bool, breadcrumb_path: str, connected: bool = True) -> None:
     """
     Display a submenu for a menu item.
     
@@ -278,6 +280,7 @@ def display_submenu(window, parent_item: MenuItem, fabric_enabled: bool, breadcr
         parent_item: The parent menu item containing submenu items
         fabric_enabled: Whether fabric is enabled
         breadcrumb_path: The current breadcrumb path
+        connected: Whether connected to Catalyst Centre
     """
     if not parent_item.submenu:
         return
@@ -297,7 +300,8 @@ def display_submenu(window, parent_item: MenuItem, fabric_enabled: bool, breadcr
     # Draw initial submenu
     draw_menu(window, submenu_items, current_idx, fabric_enabled, 
               title_text="Cisco Catalyst Centre Tools", 
-              breadcrumb=new_breadcrumb)
+              breadcrumb=new_breadcrumb,
+              connected=connected)
     
     # Submenu loop
     while True:
@@ -307,12 +311,14 @@ def display_submenu(window, parent_item: MenuItem, fabric_enabled: bool, breadcr
             if current_idx > 0:
                 current_idx -= 1
                 draw_menu(window, submenu_items, current_idx, fabric_enabled, 
-                          breadcrumb=new_breadcrumb)
+                          breadcrumb=new_breadcrumb,
+                          connected=connected)
         elif key == curses.KEY_DOWN:
             if current_idx < len(submenu_items) - 1:
                 current_idx += 1
                 draw_menu(window, submenu_items, current_idx, fabric_enabled, 
-                          breadcrumb=new_breadcrumb)
+                          breadcrumb=new_breadcrumb,
+                          connected=connected)
         elif key == ord('\n'):  # Enter key
             item = submenu_items[current_idx]
             
@@ -330,16 +336,18 @@ def display_submenu(window, parent_item: MenuItem, fabric_enabled: bool, breadcr
                 
             # Handle submenu
             if item.has_submenu:
-                display_submenu(window, item, fabric_enabled, new_breadcrumb)
+                display_submenu(window, item, fabric_enabled, new_breadcrumb, connected)
                 # Redraw this submenu after returning
                 draw_menu(window, submenu_items, current_idx, fabric_enabled, 
-                          breadcrumb=new_breadcrumb)
+                          breadcrumb=new_breadcrumb,
+                          connected=connected)
             else:
                 # Execute item action
                 item.execute(window)
                 # Redraw submenu after action
                 draw_menu(window, submenu_items, current_idx, fabric_enabled, 
-                          breadcrumb=new_breadcrumb)
+                          breadcrumb=new_breadcrumb,
+                          connected=connected)
         elif key in (curses.KEY_BACKSPACE, 27, ord('\b'), 8):  # Backspace, Escape
             return
         elif key == ord('q'):
@@ -371,6 +379,9 @@ def main_menu(stdscr) -> None:
             "Connecting to DNAC...",
             lambda: is_fabric_enabled(config)
         )
+        
+        # Set connection status based on successful connection to DNAC
+        connected = fabric_enabled is not None  # If fabric_enabled is not None, we are connected
         
         # Define menu items
         script_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts")
@@ -444,7 +455,7 @@ def main_menu(stdscr) -> None:
         current_idx = 0
         
         # Draw initial menu
-        draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+        draw_menu(stdscr, menu_items, current_idx, fabric_enabled, connected=connected)
         
         # Main loop
         while True:
@@ -453,11 +464,11 @@ def main_menu(stdscr) -> None:
             if key == curses.KEY_UP:
                 if current_idx > 0:
                     current_idx -= 1
-                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled, connected=connected)
             elif key == curses.KEY_DOWN:
                 if current_idx < len(menu_items) - 1:
                     current_idx += 1
-                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled, connected=connected)
             elif key == ord('\n'):  # Enter key
                 item = menu_items[current_idx]
                 
@@ -471,9 +482,9 @@ def main_menu(stdscr) -> None:
                     
                 # Handle submenu
                 if item.has_submenu:
-                    display_submenu(stdscr, item, fabric_enabled, "Main")
+                    display_submenu(stdscr, item, fabric_enabled, "Main", connected)
                     # Redraw main menu after submenu closes
-                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled, connected=connected)
                 # Configuration requires special handling
                 elif item.label == "Edit Configuration":
                     config = item.execute(stdscr)
@@ -486,13 +497,15 @@ def main_menu(stdscr) -> None:
                         lambda: is_fabric_enabled(config),
                         duration=1.0
                     )
+                    # Update connection status after reconnection attempt
+                    connected = fabric_enabled is not None
                     # Redraw menu
-                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled, connected=connected)
                 else:
                     # Run the action
                     item.execute(stdscr)
                     # Redraw menu
-                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled, connected=connected)
             elif key == ord('q'):
                 break
     except Exception as e:
