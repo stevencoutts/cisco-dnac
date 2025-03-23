@@ -37,12 +37,24 @@ def run_script(window, script_path: str, title: str = None) -> None:
         title = f"Output from {os.path.basename(script_path)}"
     
     try:
+        # Set up environment with correct PYTHONPATH
+        env = os.environ.copy()
+        
+        # Add project root directory to PYTHONPATH
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        
+        if 'PYTHONPATH' in env:
+            env['PYTHONPATH'] = f"{project_root}:{env['PYTHONPATH']}"
+        else:
+            env['PYTHONPATH'] = project_root
+        
         # Run the script and capture output
         result = subprocess.run(
             [sys.executable, script_path],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            env=env
         )
         
         # Display the output
