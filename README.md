@@ -2,6 +2,8 @@
 
 A modern Python client library for Cisco Catalyst Centre's REST API. This library provides a type-safe, feature-rich interface for interacting with Cisco Catalyst Centre, with support for authentication, request/response serialization, and task management.
 
+**Author:** Steven Coutts
+
 ## Features
 
 - Type-safe API with comprehensive type hints

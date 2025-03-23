@@ -146,54 +146,97 @@ def run_script(script_name: str) -> None:
         
         # Create a new window for output with proper padding
         output_win = curses.newwin(curses.LINES-2, curses.COLS, 1, 0)
-        output_win.box()
+        output_win.keypad(True)  # Enable keypad for arrow keys
         
         # Calculate safe boundaries
-        max_y = curses.LINES - 3  # Leave space for border and instructions
+        max_y = curses.LINES - 4  # Leave space for border, header and instructions
         max_x = curses.COLS - 4   # Leave space for borders
         
         # Split output into lines and display
         lines = result.stdout.split('\n')
+        total_lines = len(lines)
         scroll_pos = 0
-        max_scroll = max(0, len(lines) - (max_y - 2))  # Account for header and instructions
+        
+        # Calculate max scroll position
+        max_scroll = max(0, total_lines - max_y)
+        
+        # Flag to track if we need to redraw
+        redraw = True
         
         while True:
-            output_win.clear()
-            output_win.box()
-            
-            # Add header
-            try:
-                output_win.addstr(1, 2, f"Output from {script_name}")
-            except curses.error:
-                pass
-            
-            # Display visible lines
-            for i, line in enumerate(lines[scroll_pos:scroll_pos + (max_y - 2)], 2):
-                if i >= max_y:
-                    break
+            if redraw:
+                output_win.clear()
+                output_win.box()
+                
+                # Add header with scroll position information for debugging
+                header = f"Output from {script_name} (line {scroll_pos+1}/{total_lines})"
                 try:
-                    # Truncate line to fit window width
-                    truncated_line = line[:max_x]
-                    output_win.addstr(i, 2, truncated_line)
+                    output_win.addstr(1, 2, header[:max_x])
                 except curses.error:
-                    continue
-            
-            # Add instructions at the bottom
-            try:
-                output_win.addstr(max_y, 2, "Use ↑↓ to scroll, 'q' to return to menu")
-            except curses.error:
-                pass
-            
-            output_win.refresh()
+                    pass
+                
+                # Display visible lines
+                display_lines = min(max_y, total_lines - scroll_pos)
+                for i in range(display_lines):
+                    y_pos = i + 2  # Start at line 2 (after header)
+                    line_idx = scroll_pos + i
+                    
+                    if line_idx < total_lines and y_pos < curses.LINES - 2:
+                        try:
+                            # Truncate line to fit window width
+                            line = lines[line_idx][:max_x]
+                            output_win.addstr(y_pos, 2, line)
+                        except curses.error:
+                            continue
+                
+                # Add scroll indicators
+                if scroll_pos > 0:
+                    try:
+                        output_win.addstr(1, max_x + 1, "↑")
+                    except curses.error:
+                        pass
+                
+                if scroll_pos < max_scroll:
+                    try:
+                        output_win.addstr(max_y + 1, max_x + 1, "↓")
+                    except curses.error:
+                        pass
+                
+                # Add instructions at the bottom
+                try:
+                    output_win.addstr(curses.LINES-3, 2, 
+                                     "↑/↓: scroll 1 line, PgUp/PgDn: scroll page, Home/End: start/end, q: quit")
+                except curses.error:
+                    pass
+                
+                output_win.refresh()
+                redraw = False
             
             # Handle user input
             key = output_win.getch()
+            
             if key == ord('q'):
                 break
-            elif key == curses.KEY_UP and scroll_pos > 0:
-                scroll_pos = max(0, scroll_pos - 1)
-            elif key == curses.KEY_DOWN and scroll_pos < max_scroll:
-                scroll_pos = min(max_scroll, scroll_pos + 1)
+            elif key == curses.KEY_UP:
+                if scroll_pos > 0:
+                    scroll_pos -= 1
+                    redraw = True
+            elif key == curses.KEY_DOWN:
+                if scroll_pos < max_scroll:
+                    scroll_pos += 1
+                    redraw = True
+            elif key == curses.KEY_PPAGE:  # Page Up
+                scroll_pos = max(0, scroll_pos - max_y)
+                redraw = True
+            elif key == curses.KEY_NPAGE:  # Page Down
+                scroll_pos = min(max_scroll, scroll_pos + max_y)
+                redraw = True
+            elif key == curses.KEY_HOME:  # Home
+                scroll_pos = 0
+                redraw = True
+            elif key == curses.KEY_END:  # End
+                scroll_pos = max_scroll
+                redraw = True
                 
     except subprocess.CalledProcessError as e:
         # Handle script errors
@@ -223,11 +266,25 @@ def draw_menu(stdscr, selected_idx: int, options: List[str]) -> None:
     except curses.error:
         pass
     
+    # Calculate visible range
+    visible_height = h - 4  # Leave space for title and instructions
+    total_height = len(options)
+    
+    # Calculate scroll position to keep selected item visible
+    if selected_idx < 0:
+        selected_idx = 0
+    elif selected_idx >= total_height:
+        selected_idx = total_height - 1
+    
+    # Calculate start index to keep selected item centered when possible
+    start_idx = max(0, min(selected_idx - visible_height // 2, total_height - visible_height))
+    end_idx = min(total_height, start_idx + visible_height)
+    
     # Draw options
-    for idx, option in enumerate(options):
+    for idx, option in enumerate(options[start_idx:end_idx], start=start_idx):
         x = w//2 - len(option)//2
-        y = h//2 - len(options)//2 + idx
-        if y >= h - 1:  # Skip if we're at the bottom of the screen
+        y = 2 + (idx - start_idx)  # Start at y=2 to leave space for title
+        if y >= h - 2:  # Leave space for instructions
             break
         try:
             if idx == selected_idx:
@@ -238,6 +295,18 @@ def draw_menu(stdscr, selected_idx: int, options: List[str]) -> None:
                 stdscr.addstr(y, x, option)
         except curses.error:
             continue
+    
+    # Draw scroll indicators if needed
+    if start_idx > 0:
+        try:
+            stdscr.addstr(1, 2, "↑")
+        except curses.error:
+            pass
+    if end_idx < total_height:
+        try:
+            stdscr.addstr(h-3, 2, "↓")
+        except curses.error:
+            pass
     
     # Draw instructions
     try:
@@ -265,10 +334,14 @@ def main(stdscr):
     while True:
         key = stdscr.getch()
         
-        if key == curses.KEY_UP and current_idx > 0:
-            current_idx -= 1
-        elif key == curses.KEY_DOWN and current_idx < len(options) - 1:
-            current_idx += 1
+        if key == curses.KEY_UP:
+            if current_idx > 0:
+                current_idx -= 1
+                draw_menu(stdscr, current_idx, options)
+        elif key == curses.KEY_DOWN:
+            if current_idx < len(options) - 1:
+                current_idx += 1
+                draw_menu(stdscr, current_idx, options)
         elif key == ord('\n'):  # Enter key
             if current_idx == 0:
                 run_script("devices.py")
@@ -278,10 +351,9 @@ def main(stdscr):
                 edit_config(stdscr)
             elif current_idx == 3:
                 break
+            draw_menu(stdscr, current_idx, options)  # Redraw menu after script execution
         elif key == ord('q'):
             break
-            
-        draw_menu(stdscr, current_idx, options)
 
 if __name__ == "__main__":
     try:
