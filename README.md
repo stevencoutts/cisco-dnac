@@ -45,7 +45,116 @@ with Dnac('10.0.0.1') as dnac:
     print(dnac.get('network-device/count'))
 ```
 
-## Error Handling
+## Core Examples
+
+### Network Device Management
+
+```python
+# Get all network devices
+devices = dnac.get('network-device').response
+
+# Get device details by ID
+device = dnac.get(f'network-device/{device_id}').response
+
+# Get device interfaces
+interfaces = dnac.get(f'interface/network-device/{device_id}').response
+
+# Get device health
+health = dnac.get(f'network-device/{device_id}/health').response
+```
+
+### Site Management
+
+```python
+# Get all sites
+sites = dnac.get('site').response
+
+# Get site hierarchy
+site_hierarchy = dnac.get('site/{site_id}/hierarchy').response
+
+# Create a new site
+site_data = {
+    "site": {
+        "area": {
+            "name": "Building 1",
+            "parentName": "Global"
+        },
+        "building": {
+            "name": "Floor 1",
+            "parentName": "Building 1"
+        },
+        "floor": {
+            "name": "Room 101",
+            "parentName": "Floor 1"
+        }
+    }
+}
+response = dnac.post('site', data=site_data)
+```
+
+### Template Management
+
+```python
+# Get all templates
+templates = dnac.get('template-programmer/template').response
+
+# Get template details
+template = dnac.get(f'template-programmer/template/{template_id}').response
+
+# Deploy template to device
+deploy_data = {
+    "templateId": template_id,
+    "targetInfo": [{
+        "type": "MANAGED_DEVICE_UUID",
+        "id": device_id,
+        "params": {
+            "hostname": "switch-1",
+            "interface": "GigabitEthernet1/0/1"
+        }
+    }]
+}
+response = dnac.post('template-programmer/template/deploy', data=deploy_data)
+```
+
+### IP Address Management
+
+```python
+# Get IP pools
+ip_pools = dnac.get('ippool', ver='v2').response
+
+# Create new IP pool
+pool_data = {
+    "ipPoolName": "Guest-Pool",
+    "ipPoolCidr": "10.0.0.0/24",
+    "gateways": ["10.0.0.1"],
+    "dhcpServerIps": ["10.0.0.2"],
+    "dnsServerIps": ["8.8.8.8", "8.8.4.4"]
+}
+response = dnac.post('ippool', ver='v2', data=pool_data)
+
+# Get IP address assignments
+assignments = dnac.get('ip-address-assignment').response
+```
+
+### Task Management
+
+```python
+# Get task status
+task_status = dnac.get(f'task/{task_id}').response
+
+# Wait for task completion with custom settings
+result = dnac.wait_on_task(
+    task_id='task-id',
+    timeout=300,  # 5 minutes
+    interval=2,   # Initial check interval
+    backoff=1.15  # Exponential backoff factor
+)
+
+# Get task history
+task_history = dnac.get('task').response
+```
+
+### Error Handling
 
 The library provides custom exceptions for better error handling:
 
@@ -62,20 +171,6 @@ except TaskError as e:
     print(f"Response: {e.response}")
 except TimeoutError as e:
     print(f"Task timed out: {e}")
-```
-
-## Task Management
-
-The library provides robust task management with automatic retries and backoff:
-
-```python
-# Wait for a task to complete with custom timeout and retry settings
-result = dnac.wait_on_task(
-    task_id='task-id',
-    timeout=300,  # 5 minutes
-    interval=2,   # Initial check interval
-    backoff=1.15  # Exponential backoff factor
-)
 ```
 
 ## Sample Scripts
