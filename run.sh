@@ -6,4 +6,4 @@
 export PYTHONPATH=$(pwd)
 
 # Run the main application
-python3 main.py "$@" 
+python3 main.py --verbose 
