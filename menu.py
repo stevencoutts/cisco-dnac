@@ -3,7 +3,135 @@ import curses
 import sys
 import subprocess
 import os
-from typing import List, Tuple
+import yaml
+from typing import List, Tuple, Dict, Any
+
+def load_config() -> Dict[str, Any]:
+    """Load configuration from config.yaml file."""
+    try:
+        with open('config.yaml', 'r') as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        return {
+            'server': {
+                'host': 'https://sandboxdnac.cisco.com',
+                'port': 443,
+                'verify_ssl': False,
+                'timeout': 30
+            },
+            'auth': {
+                'username': 'devnetuser',
+                'password': 'Cisco123!'
+            }
+        }
+
+def save_config(config: Dict[str, Any]) -> None:
+    """Save configuration to config.yaml file."""
+    with open('config.yaml', 'w') as f:
+        yaml.dump(config, f, default_flow_style=False)
+
+def edit_config(stdscr) -> None:
+    """Edit configuration settings in a curses window."""
+    config = load_config()
+    current_section = 0
+    current_field = 0
+    editing = False
+    edit_buffer = ""
+    
+    sections = ['server', 'auth']
+    fields = {
+        'server': ['host', 'port', 'verify_ssl', 'timeout'],
+        'auth': ['username', 'password']
+    }
+    
+    while True:
+        stdscr.clear()
+        h, w = stdscr.getmaxyx()
+        
+        # Draw title
+        title = "DNAC Configuration Editor"
+        stdscr.addstr(0, (w - len(title)) // 2, title)
+        
+        # Draw sections and fields
+        y = 2
+        for section_idx, section in enumerate(sections):
+            # Draw section header
+            stdscr.attron(curses.A_BOLD)
+            stdscr.addstr(y, 2, f"{section.upper()} Settings:")
+            stdscr.attroff(curses.A_BOLD)
+            y += 1
+            
+            # Draw fields
+            for field_idx, field in enumerate(fields[section]):
+                value = str(config[section][field])
+                prefix = "> " if section_idx == current_section and field_idx == current_field else "  "
+                display_value = "*" * len(value) if field == "password" else value
+                line = f"{prefix}{field}: {display_value}"
+                stdscr.addstr(y, 4, line)
+                y += 1
+            y += 1
+        
+        # Draw instructions
+        instructions = [
+            "Use ↑↓ to navigate, Enter to edit, 's' to save, 'q' to quit",
+            "Current value: " + (edit_buffer if editing else "")
+        ]
+        for i, instr in enumerate(instructions):
+            stdscr.addstr(h-2+i, 2, instr)
+        
+        stdscr.refresh()
+        
+        # Handle input
+        key = stdscr.getch()
+        
+        if editing:
+            if key == ord('\n'):  # Enter
+                # Save the edited value
+                section = sections[current_section]
+                field = fields[section][current_field]
+                try:
+                    if field in ['port', 'timeout']:
+                        config[section][field] = int(edit_buffer)
+                    elif field == 'verify_ssl':
+                        config[section][field] = edit_buffer.lower() == 'true'
+                    else:
+                        config[section][field] = edit_buffer
+                except ValueError:
+                    pass  # Keep old value if conversion fails
+                editing = False
+                edit_buffer = ""
+            elif key == 27:  # ESC
+                editing = False
+                edit_buffer = ""
+            elif key == curses.KEY_BACKSPACE or key == 127:
+                edit_buffer = edit_buffer[:-1]
+            else:
+                edit_buffer += chr(key)
+        else:
+            if key == ord('q'):
+                break
+            elif key == ord('s'):
+                save_config(config)
+                stdscr.addstr(h-1, 2, "Configuration saved! Press any key to continue...")
+                stdscr.refresh()
+                stdscr.getch()
+            elif key == ord('\n'):
+                editing = True
+                section = sections[current_section]
+                field = fields[section][current_field]
+                edit_buffer = str(config[section][field])
+            elif key == curses.KEY_UP:
+                if current_field > 0:
+                    current_field -= 1
+                elif current_section > 0:
+                    current_section -= 1
+                    current_field = len(fields[sections[current_section]]) - 1
+            elif key == curses.KEY_DOWN:
+                if current_field < len(fields[sections[current_section]]) - 1:
+                    current_field += 1
+                elif current_section < len(sections) - 1:
+                    current_section += 1
+                    current_field = 0
 
 def run_script(script_name: str) -> None:
     """Run a Python script and handle its output."""
@@ -127,6 +255,7 @@ def main(stdscr):
     options = [
         "List Network Devices",
         "List SDA Segments",
+        "Edit Configuration",
         "Exit"
     ]
     
@@ -146,6 +275,8 @@ def main(stdscr):
             elif current_idx == 1:
                 run_script("segment.py")
             elif current_idx == 2:
+                edit_config(stdscr)
+            elif current_idx == 3:
                 break
         elif key == ord('q'):
             break
