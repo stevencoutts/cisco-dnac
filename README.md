@@ -178,9 +178,43 @@ except TimeoutError as e:
 The repository includes several sample scripts demonstrating common use cases:
 
 - `segment.py`: Display SDA segments
+- `devices.py`: List network devices from Catalyst Centre with detailed information
 - `pool-import.py`: Add global IP pools and assign them to virtual networks from CSV file
 - `cfs-import.py`: Configure Campus fabric edge ports from CSV file
 - `template.py`: Provision a user template without using network profiles
+
+### Using the devices.py Script
+
+The `devices.py` script retrieves and displays network devices from Cisco Catalyst Centre.
+
+1. Create or update your `config.yaml` file:
+```yaml
+# Catalyst Centre Server Configuration
+server:
+  host: "https://sandboxdnac.cisco.com"
+  port: 443
+  verify_ssl: false
+  timeout: 30
+
+# Authentication
+auth:
+  username: "devnetuser"
+  password: "Cisco123!"
+```
+
+2. Run the script:
+```bash
+python devices.py
+```
+
+3. Optional arguments:
+   - `-c, --config`: Specify a custom config file path
+   - `-v, --verbose`: Enable verbose output for debugging
+
+The script will display:
+- List of all network devices with hostname, IP, platform, serial number, etc.
+- Detailed information about the first device
+- Interface information for the first device
 
 ## Development
 
