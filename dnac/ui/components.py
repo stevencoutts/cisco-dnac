@@ -76,32 +76,61 @@ def draw_spinner(window, frame_index: int, text: str, y: int, frames: Optional[L
     except curses.error:
         pass
 
-def draw_menu_item(window, text: str, y: int, selected: bool = False) -> None:
-    """Draw a menu item, highlighting it if selected."""
+def draw_menu_item(window, label: str, y: int, is_selected: bool, x: int = None) -> None:
+    """
+    Draw a menu item with the appropriate styling.
+    
+    Args:
+        window: The curses window to draw on
+        label: The menu item label
+        y: The y position to draw at
+        is_selected: Whether the item is currently selected
+        x: Optional x position (centered if None)
+    """
     h, w = window.getmaxyx()
     
-    try:
-        x = (w - len(text)) // 2
-        if selected:
-            window.attron(get_color(ColorPair.MENU_SELECTED, bold=True))
-            window.addstr(y, x, text)
-            window.attroff(get_color(ColorPair.MENU_SELECTED, bold=True))
+    if x is None:
+        # Center the item unless it's a separator (empty label)
+        if label == "":
+            x = 0
         else:
-            window.addstr(y, x, text)
-    except curses.error:
-        pass
+            x = (w - len(label)) // 2
+    
+    # Don't draw anything for separator items (empty labels)
+    if label == "":
+        return
+        
+    # Select appropriate color
+    if is_selected:
+        # Use selected style
+        window.attron(get_color(ColorPair.SELECTED, bold=True))
+        window.addstr(y, x, label)
+        window.attroff(get_color(ColorPair.SELECTED, bold=True))
+    else:
+        # Use normal style
+        window.attron(get_color(ColorPair.NORMAL))
+        window.addstr(y, x, label)
+        window.attroff(get_color(ColorPair.NORMAL))
 
 def draw_status_indicator(window, enabled: bool, text_enabled: str = "● ENABLED", 
-                         text_disabled: str = "○ DISABLED", y: int = 0) -> None:
+                         text_disabled: str = "○ DISABLED", y: int = 0, x: Optional[int] = None) -> None:
     """Draw a status indicator showing enabled/disabled state."""
     h, w = window.getmaxyx()
     
     status_text = text_enabled if enabled else text_disabled
     color = ColorPair.SUCCESS if enabled else ColorPair.DISABLED
     
+    # Set default x position if not specified
+    if x is None:
+        x = w - len(status_text) - 2
+    
+    # Ensure we don't exceed window boundaries
+    if y < 0 or y >= h or x < 0:
+        return
+    
     try:
         window.attron(get_color(color, bold=True))
-        window.addstr(y, w - len(status_text) - 2, status_text)
+        window.addstr(y, x, status_text)
         window.attroff(get_color(color, bold=True))
     except curses.error:
         pass 
