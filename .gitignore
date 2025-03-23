@@ -38,4 +38,7 @@ htmlcov/
 .mypy_cache/
 
 # Logs
-*.log 
+*.log
+
+# Configuration
+config.yaml 

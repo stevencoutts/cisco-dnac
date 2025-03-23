@@ -1,0 +1,28 @@
+# Catalyst Centre Server Configuration
+server:
+  host: "10.0.0.1" # Server hostname or IP
+  port: 443 # Server port (default: 443)
+  verify_ssl: false # Whether to verify SSL certificate
+  timeout: 30 # Request timeout in seconds
+
+# Authentication
+auth:
+  username: "admin" # Default username
+  password: "" # Password (leave empty in example)
+
+# API Settings
+api:
+  version: "v1" # API version to use
+  base_path: "api" # Base API path
+
+# Logging
+logging:
+  level: "INFO" # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  file: "dnac.log" # Log file path
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s" # Log format
+
+# Task Management
+task:
+  timeout: 300 # Default task timeout in seconds
+  interval: 2 # Initial check interval in seconds
+  backoff: 1.15 # Exponential backoff factor 
