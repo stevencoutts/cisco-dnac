@@ -68,23 +68,43 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
         # Check if this is a script that contains its own curses handling
         # Add specific scripts that have their own curses handling here
         script_base = os.path.basename(script_file)
-        is_curses_script = 'curses' in script_file or script_base in ['hierarchy.py', 'devices.py']
+        is_curses_script = ('curses' in script_file or 
+                           script_base in ['hierarchy.py', 'devices.py', 'add_site_curses.py', 
+                                          'template.py', 'segment.py'])
         
         if interactive or is_curses_script:
-            # Completely exit curses mode
-            curses.endwin()
-            
-            # Show running message unless suppressed
-            if not suppress_prompts:
-                print(f"\n==== Running {os.path.basename(script_file)} ====\n")
-            
-            # Run the script allowing direct user interaction
-            result = subprocess.run(
-                [sys.executable, script_file] + script_args,
-                env=env
-            )
-            
-            # No pause, immediately return to menu
+            # For scripts with their own curses handling, show a loading screen first
+            if is_curses_script:
+                loading_message = f"Loading {os.path.basename(script_file)}..."
+                
+                def run_curses_script():
+                    curses.endwin()
+                    result = subprocess.run(
+                        [sys.executable, script_file] + script_args,
+                        env=env
+                    )
+                    return result
+                
+                # Show loading screen that will run the script after animation
+                show_loading_screen(
+                    window,
+                    "Cisco Catalyst Centre",
+                    loading_message,
+                    run_curses_script,
+                    duration=1.0,
+                    complete_msg="Starting..."
+                )
+            else:
+                # Non-curses interactive scripts
+                curses.endwin()
+                if not suppress_prompts:
+                    print(f"\n==== Running {os.path.basename(script_file)} ====\n")
+                
+                # Run the script allowing direct user interaction
+                result = subprocess.run(
+                    [sys.executable, script_file] + script_args,
+                    env=env
+                )
             
             # Restart curses safely without assuming any previous state
             os.environ.setdefault('ESCDELAY', '25')  # Reduce ESC key delay
@@ -122,12 +142,24 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
         
     except subprocess.CalledProcessError as e:
         if interactive or is_curses_script:
-            # Already in terminal mode
-            if not suppress_prompts:
-                print(f"Error running {script_path}:\n{str(e)}")
-                if hasattr(e, 'stderr') and e.stderr:
-                    print(f"Error output:\n{e.stderr}")
-                    # No error pause
+            # Show error message and return to menu via loading screen
+            def handle_error():
+                curses.endwin()
+                if not suppress_prompts:
+                    print(f"Error running {script_path}:\n{str(e)}")
+                    if hasattr(e, 'stderr') and e.stderr:
+                        print(f"Error output:\n{e.stderr}")
+                return None
+            
+            # Use loading screen to transition back to menu
+            show_loading_screen(
+                window,
+                "Cisco Catalyst Centre",
+                "Returning to menu...",
+                handle_error,
+                duration=1.0,
+                complete_msg="Ready"
+            )
             
             # Restart curses safely
             os.environ.setdefault('ESCDELAY', '25')
@@ -158,10 +190,22 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             show_scrollable_output(window, error_output, "Error")
     except KeyboardInterrupt:
         if interactive or is_curses_script:
-            # Restore curses mode
-            if not suppress_prompts:
-                print("\nOperation cancelled by user")
-                # No pause after cancellation
+            # Handle interruption and return to menu via loading screen
+            def handle_interrupt():
+                curses.endwin()
+                if not suppress_prompts:
+                    print("\nOperation cancelled by user")
+                return None
+            
+            # Use loading screen to transition back to menu
+            show_loading_screen(
+                window,
+                "Cisco Catalyst Centre",
+                "Returning to menu...",
+                handle_interrupt,
+                duration=1.0,
+                complete_msg="Ready"
+            )
             
             # Restart curses safely
             os.environ.setdefault('ESCDELAY', '25')
