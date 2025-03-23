@@ -14,6 +14,7 @@ A modern Python client library for Cisco Catalyst Centre's REST API. This librar
 - Support for both synchronous and context manager usage
 - Comprehensive logging support
 - URL validation and security features
+- Enhanced CLI interface with interactive menus and configuration editor
 
 ## Installation
 
@@ -175,26 +176,74 @@ except TimeoutError as e:
     print(f"Task timed out: {e}")
 ```
 
+## CLI Interface
+
+The library includes a rich command-line interface with an interactive TUI (Text User Interface) for easy management of Cisco Catalyst Centre operations.
+
+### Running the CLI
+
+```bash
+python main.py
+```
+
+Optional arguments:
+- `-c, --config`: Specify a custom config file path (default: config.yaml)
+- `-v, --verbose`: Enable verbose output for debugging
+
+### CLI Features
+
+- **Interactive Menu System**: Navigate with arrow keys, select with Enter
+- **Configuration Editor**: Edit connection settings interactively
+- **Automatic Fabric Detection**: Detects and indicates SDA/Fabric capability
+- **Scrollable Output**: View script results with full keyboard navigation
+- **Loading Screens**: Visual feedback during API operations
+- **Windows Support**: Works on both Unix and Windows environments
+
+### Navigation Controls
+
+- **Main Menu**: Use ↑↓ keys to navigate, Enter to select, 'q' to quit
+- **Output View**: ↑↓ to scroll line by line, PgUp/PgDn for page scrolling, Home/End to jump to start/end
+
+### Configuration
+
+The CLI automatically loads configuration from `config.yaml` in the current directory:
+
+```yaml
+# Catalyst Centre Server Configuration
+server:
+  host: "https://sandboxdnac.cisco.com"
+  port: 443
+  verify_ssl: false
+  timeout: 30
+
+# Authentication
+auth:
+  username: "devnetuser"
+  password: "Cisco123!"
+```
+
+You can edit this configuration directly in the CLI using the built-in configuration editor.
+
 ## Sample Scripts
 
 The repository includes several sample scripts demonstrating common use cases:
 
-- `menu.py`: Interactive terminal menu for running other scripts
+- `main.py`: The main CLI entry point with interactive menu
 - `segment.py`: Display SDA segments
 - `devices.py`: List network devices from Catalyst Centre with detailed information
 - `pool-import.py`: Add global IP pools and assign them to virtual networks from CSV file
 - `cfs-import.py`: Configure Campus fabric edge ports from CSV file
 - `template.py`: Provision a user template without using network profiles
 
-### Using the menu.py Script
+### Using the CLI (main.py)
 
-The `menu.py` script provides an interactive terminal-based menu system for running other scripts in the repository.
+The new interactive CLI interface provides a modern, user-friendly way to interact with Cisco Catalyst Centre:
 
-1. Make sure you have the required configuration in your `config.yaml` file (see devices.py section for details)
+1. Make sure you have the required configuration in your `config.yaml` file or create one using the configuration editor.
 
-2. Run the menu:
+2. Run the CLI:
 ```bash
-python menu.py
+python main.py
 ```
 
 3. Navigation:
@@ -202,12 +251,13 @@ python menu.py
    - Press Enter to select an option
    - Press 'q' to quit
    - When viewing script output:
-     - Use ↑↓ to scroll through the output
+     - Use ↑↓, Page Up/Down, Home/End to navigate through output
      - Press 'q' to return to the main menu
 
-The menu provides easy access to:
+The CLI provides easy access to:
 - List Network Devices
-- List SDA Segments
+- List SDA Segments (automatically disabled if fabric isn't detected)
+- Edit Configuration
 - Exit
 
 ### Using the devices.py Script
@@ -242,6 +292,40 @@ The script will display:
 - List of all network devices with hostname, IP, platform, serial number, etc.
 - Detailed information about the first device
 - Interface information for the first device
+
+## Project Structure
+
+The project follows a modular architecture for better maintainability and extensibility:
+
+```
+dnac/
+├── cli/              # CLI interface components
+│   ├── config_editor.py  # Configuration editing interface
+│   ├── loading.py    # Loading screens and animations
+│   ├── menu.py       # Main menu system
+│   └── output.py     # Output display with scrolling
+├── core/             # Core functionality
+│   ├── api.py        # API client for DNAC
+│   ├── config.py     # Configuration loading/saving
+│   └── fabric.py     # Fabric detection functionality
+├── ui/               # User interface components
+│   ├── colors.py     # Color schemes and styling
+│   └── components.py # Reusable UI elements
+└── utils/            # Utility functions
+    └── helpers.py    # Helper utilities
+```
+
+### Adding New Features
+
+The modular architecture makes it easy to extend the CLI with new features:
+
+1. To add a new script:
+   - Add the script to the `scripts` directory
+   - Update the `scripts` dictionary in `dnac/cli/menu.py`
+
+2. To add a new menu option:
+   - Add a new `MenuItem` in the `main_menu` function in `dnac/cli/menu.py`
+   - Implement the corresponding action function
 
 ## Development
 
@@ -339,4 +423,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Author
 
-Tim Dorssers
+Steven Coutts
