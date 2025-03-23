@@ -15,7 +15,7 @@ from dnac.cli.loading import show_loading_screen
 from dnac.cli.output import show_scrollable_output
 from dnac.cli.config_editor import edit_config
 from dnac.ui.colors import ColorPair, get_color, initialize_colors
-from dnac.ui.components import draw_status_indicator, draw_menu_item
+from dnac.ui.components import draw_status_indicator, draw_menu_item, draw_standard_header_footer
 
 class MenuItem:
     """Menu item with a label and associated action."""
@@ -65,14 +65,11 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
         else:
             env['PYTHONPATH'] = project_root
             
-        # Save current terminal state
-        curses_state = {
-            'was_keypad': window.getyx()  # Just a placeholder to store something
-        }
+        # Check if this is a script that contains its own curses handling
+        # Add specific scripts that have their own curses handling here
+        script_base = os.path.basename(script_file)
+        is_curses_script = 'curses' in script_file or script_base in ['hierarchy.py', 'devices.py']
         
-        # For both interactive scripts and scripts containing 'curses' in the name,
-        # we need to completely exit curses mode
-        is_curses_script = 'curses' in script_file
         if interactive or is_curses_script:
             # Completely exit curses mode
             curses.endwin()
@@ -90,6 +87,9 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             # Pause to let user see the results unless suppressed
             if not suppress_prompts:
                 input("\nPress Enter to return to the menu...")
+            
+            # Restart curses safely without assuming any previous state
+            os.environ.setdefault('ESCDELAY', '25')  # Reduce ESC key delay
             
             # Completely reinitialize curses
             stdscr = curses.initscr()
@@ -126,8 +126,13 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
         if interactive or is_curses_script:
             # Already in terminal mode
             if not suppress_prompts:
-                print(f"Error running {script_path}:\n{str(e)}\n{e.stderr}")
+                print(f"Error running {script_path}:\n{str(e)}")
+                if hasattr(e, 'stderr') and e.stderr:
+                    print(f"Error output:\n{e.stderr}")
                 input("\nPress Enter to return to the menu...")
+            
+            # Restart curses safely
+            os.environ.setdefault('ESCDELAY', '25')
             
             # Completely reinitialize curses
             stdscr = curses.initscr()
@@ -149,7 +154,9 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             window.refresh()
         else:
             # Handle script error in curses mode
-            error_output = f"Error running {script_path}:\n\n{str(e)}\n\n{e.stderr}"
+            error_output = f"Error running {script_path}:\n\n{str(e)}"
+            if hasattr(e, 'stderr') and e.stderr:
+                error_output += f"\n\n{e.stderr}"
             show_scrollable_output(window, error_output, "Error")
     except KeyboardInterrupt:
         if interactive or is_curses_script:
@@ -157,6 +164,9 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             if not suppress_prompts:
                 print("\nOperation cancelled by user")
                 input("\nPress Enter to return to the menu...")
+            
+            # Restart curses safely
+            os.environ.setdefault('ESCDELAY', '25')
             
             # Completely reinitialize curses
             stdscr = curses.initscr()
@@ -176,6 +186,10 @@ def run_script(window, script_path: str, title: str = None, interactive: bool = 
             window.clear()
             window.bkgd(' ', get_color(ColorPair.NORMAL))
             window.refresh()
+    except Exception as e:
+        # Added more detailed error handling
+        error_message = f"Unexpected error running {script_path}:\n\n{str(e)}\n\nType: {type(e)}"
+        show_scrollable_output(window, error_message, "Error")
 
 def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: bool, title_text: str = "Cisco Catalyst Centre Tools", breadcrumb: str = None) -> None:
     """
@@ -196,31 +210,13 @@ def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: 
     # Get window dimensions
     h, w = window.getmaxyx()
     
-    # Draw title bar with background
-    window.attron(get_color(ColorPair.HEADER, bold=True))
-    for x in range(w):
-        window.addstr(0, x, " ")
-    window.addstr(0, (w - len(title_text)) // 2, title_text)
-    window.attroff(get_color(ColorPair.HEADER, bold=True))
-    
-    # Draw breadcrumb if provided
-    if breadcrumb:
-        # Add a subtle separator line with a gradient effect
-        window.attron(get_color(ColorPair.NORMAL))
-        for x in range(w):
-            window.addstr(1, x, "─")
-        window.attroff(get_color(ColorPair.NORMAL))
-        
-        # Display breadcrumb with styling
-        window.attron(get_color(ColorPair.HIGHLIGHT))
-        window.addstr(2, 2, breadcrumb)
-        window.attroff(get_color(ColorPair.HIGHLIGHT))
-        
-        # Start drawing menu items below the breadcrumb
-        start_y = 4
-    else:
-        # Start drawing menu items below title
-        start_y = 2
+    # Use standard header/footer
+    start_y = draw_standard_header_footer(
+        window, 
+        title=title_text,
+        subtitle=breadcrumb,
+        fabric_enabled=fabric_enabled
+    )
     
     # Calculate available menu height
     menu_height = h - start_y - 2  # Leave room for status at bottom
@@ -271,19 +267,6 @@ def draw_menu(window, items: List[MenuItem], selected_idx: int, fabric_enabled: 
             window.attron(get_color(ColorPair.NORMAL))
             window.addstr(start_y + visible_count, w // 2, "▼")
             window.attroff(get_color(ColorPair.NORMAL))
-    
-    # Draw status indicator at bottom
-    status_y = h - 1
-    draw_status_indicator(window, fabric_enabled, 
-                         text_enabled="● FABRIC ENABLED", 
-                         text_disabled="● FABRIC DISABLED",
-                         y=status_y - 1, x=2)
-    
-    # Draw legend at bottom
-    legend_text = "↑↓: Navigate  Enter: Select  Esc/q: Quit"
-    window.attron(get_color(ColorPair.HIGHLIGHT))
-    window.addstr(status_y, (w - len(legend_text)) // 2, legend_text)
-    window.attroff(get_color(ColorPair.HIGHLIGHT))
     
     # Refresh window
     window.refresh()
@@ -371,145 +354,155 @@ def main_menu(stdscr) -> None:
     Args:
         stdscr: The main curses window
     """
-    # Hide cursor and initialize colors
-    curses.curs_set(0)
-    initialize_colors()
-    
-    # Set up navy blue background
-    stdscr.bkgd(' ', get_color(ColorPair.NORMAL))
-    stdscr.clear()
-    stdscr.refresh()
-    
-    config = load_config()
-    
-    # Check if fabric is enabled (with loading screen)
-    fabric_enabled = show_loading_screen(
-        stdscr,
-        "Cisco Catalyst Centre Tools",
-        "Connecting to DNAC...",
-        lambda: is_fabric_enabled(config)
-    )
-    
-    # Define menu items
-    script_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts")
-    
-    # Map of script labels to paths
-    scripts = {
-        "List Network Devices": os.path.join(script_dir, "devices.py")
-    }
-    
-    # Create main menu items for scripts
-    device_menu_items = [
-        MenuItem(
-            label=name,
-            action_fn=lambda window, path=path: run_script(window, path, name, False)
-        )
-        for name, path in scripts.items()
-    ]
-    
-    # Fabric Configuration submenu items
-    fabric_menu_items = [
-        MenuItem(
-            label="List SDA Segments",
-            action_fn=lambda window: run_script(window, os.path.join(script_dir, "segment.py"), "List SDA Segments", False),
-            requires_fabric=True
-        )
-    ]
-    
-    # Site Hierarchy submenu items
-    site_hierarchy_items = [
-        MenuItem(
-            label="List Hierarchy",
-            action_fn=lambda window: run_script(window, os.path.join(script_dir, "hierarchy.py"), "Site Hierarchy", False)
-        ),
-        MenuItem(
-            label="Add Site",
-            action_fn=lambda window: run_script(window, os.path.join(script_dir, "add_site_curses.py") + " --from-menu", "Add Site", False, True)
-        )
-    ]
-    
-    # Main menu items
-    menu_items = [
-        # Site Hierarchy menu with submenu (moved to top)
-        MenuItem(
-            label="Site Hierarchy",
-            submenu=site_hierarchy_items
-        ),
-        # Fabric Configuration menu with submenu
-        MenuItem(
-            label="Fabric Configuration",
-            submenu=fabric_menu_items,
-            requires_fabric=True
-        )
-    ] + device_menu_items + [
-        # Add configuration editor
-        MenuItem(
-            label="Edit Configuration",
-            action_fn=lambda window: edit_config(window)
-        ),
-        # Add separator
-        MenuItem(
-            label=""
-        ),
-        # Add exit option
-        MenuItem(
-            label="Exit",
-            action_fn=lambda window: None
-        )
-    ]
-    
-    # Menu state
-    current_idx = 0
-    
-    # Draw initial menu
-    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
-    
-    # Main loop
-    while True:
-        key = stdscr.getch()
+    try:
+        # Hide cursor and initialize colors
+        curses.curs_set(0)
+        initialize_colors()
         
-        if key == curses.KEY_UP:
-            if current_idx > 0:
-                current_idx -= 1
-                draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
-        elif key == curses.KEY_DOWN:
-            if current_idx < len(menu_items) - 1:
-                current_idx += 1
-                draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
-        elif key == ord('\n'):  # Enter key
-            item = menu_items[current_idx]
+        # Set up navy blue background
+        stdscr.bkgd(' ', get_color(ColorPair.NORMAL))
+        stdscr.clear()
+        stdscr.refresh()
+        
+        config = load_config()
+        
+        # Check if fabric is enabled (with loading screen)
+        fabric_enabled = show_loading_screen(
+            stdscr,
+            "Cisco Catalyst Centre Tools",
+            "Connecting to DNAC...",
+            lambda: is_fabric_enabled(config)
+        )
+        
+        # Define menu items
+        script_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts")
+        
+        # Map of script labels to paths
+        scripts = {
+            "List Network Devices": os.path.join(script_dir, "devices.py")
+        }
+        
+        # Create main menu items for scripts
+        device_menu_items = [
+            MenuItem(
+                label=name,
+                action_fn=lambda window, path=path: run_script(window, path, name, False)
+            )
+            for name, path in scripts.items()
+        ]
+        
+        # Fabric Configuration submenu items
+        fabric_menu_items = [
+            MenuItem(
+                label="List SDA Segments",
+                action_fn=lambda window: run_script(window, os.path.join(script_dir, "segment.py"), "List SDA Segments", False),
+                requires_fabric=True
+            )
+        ]
+        
+        # Site Hierarchy submenu items
+        site_hierarchy_items = [
+            MenuItem(
+                label="List Hierarchy",
+                action_fn=lambda window: run_script(window, os.path.join(script_dir, "hierarchy.py"), "Site Hierarchy", False)
+            ),
+            MenuItem(
+                label="Add Site",
+                action_fn=lambda window: run_script(window, os.path.join(script_dir, "add_site_curses.py") + " --from-menu", "Add Site", False, True)
+            )
+        ]
+        
+        # Main menu items
+        menu_items = [
+            # Site Hierarchy menu with submenu (moved to top)
+            MenuItem(
+                label="Site Hierarchy",
+                submenu=site_hierarchy_items
+            ),
+            # Fabric Configuration menu with submenu
+            MenuItem(
+                label="Fabric Configuration",
+                submenu=fabric_menu_items,
+                requires_fabric=True
+            )
+        ] + device_menu_items + [
+            # Add configuration editor
+            MenuItem(
+                label="Edit Configuration",
+                action_fn=lambda window: edit_config(window)
+            ),
+            # Add separator
+            MenuItem(
+                label=""
+            ),
+            # Add exit option
+            MenuItem(
+                label="Exit",
+                action_fn=lambda window: None
+            )
+        ]
+        
+        # Menu state
+        current_idx = 0
+        
+        # Draw initial menu
+        draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+        
+        # Main loop
+        while True:
+            key = stdscr.getch()
             
-            # Skip disabled items
-            if item.requires_fabric and not fabric_enabled:
-                continue
+            if key == curses.KEY_UP:
+                if current_idx > 0:
+                    current_idx -= 1
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+            elif key == curses.KEY_DOWN:
+                if current_idx < len(menu_items) - 1:
+                    current_idx += 1
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+            elif key == ord('\n'):  # Enter key
+                item = menu_items[current_idx]
                 
-            # Exit item just breaks the loop
-            if item.label == "Exit":
+                # Skip disabled items
+                if item.requires_fabric and not fabric_enabled:
+                    continue
+                    
+                # Exit item just breaks the loop
+                if item.label == "Exit":
+                    break
+                    
+                # Handle submenu
+                if item.has_submenu:
+                    display_submenu(stdscr, item, fabric_enabled, "Main")
+                    # Redraw main menu after submenu closes
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+                # Configuration requires special handling
+                elif item.label == "Edit Configuration":
+                    config = item.execute(stdscr)
+                    
+                    # Recheck fabric status after config change
+                    fabric_enabled = show_loading_screen(
+                        stdscr,
+                        "Cisco Catalyst Centre Tools",
+                        "Reconnecting to DNAC...",
+                        lambda: is_fabric_enabled(config),
+                        duration=1.0
+                    )
+                    # Redraw menu
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+                else:
+                    # Run the action
+                    item.execute(stdscr)
+                    # Redraw menu
+                    draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
+            elif key == ord('q'):
                 break
-                
-            # Handle submenu
-            if item.has_submenu:
-                display_submenu(stdscr, item, fabric_enabled, "Main")
-                # Redraw main menu after submenu closes
-                draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
-            # Configuration requires special handling
-            elif item.label == "Edit Configuration":
-                config = item.execute(stdscr)
-                
-                # Recheck fabric status after config change
-                fabric_enabled = show_loading_screen(
-                    stdscr,
-                    "Cisco Catalyst Centre Tools",
-                    "Reconnecting to DNAC...",
-                    lambda: is_fabric_enabled(config),
-                    duration=1.0
-                )
-                # Redraw menu
-                draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
-            else:
-                # Run the action
-                item.execute(stdscr)
-                # Redraw menu
-                draw_menu(stdscr, menu_items, current_idx, fabric_enabled)
-        elif key == ord('q'):
-            break 
+    except Exception as e:
+        # Cleanly exit curses mode
+        curses.endwin()
+        print(f"Error in main menu: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
+        # Wait for user acknowledgment
+        input("\nPress Enter to exit...") 

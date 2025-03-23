@@ -1,8 +1,5 @@
-#!/usr/bin/env python3
-"""
-Script to display site hierarchy from Cisco Catalyst Centre.
-Author: Steven Coutts
-"""
+#!/usr/bin/env python
+"""View site hierarchy from Cisco Catalyst Centre."""
 
 import os
 import sys
@@ -10,10 +7,17 @@ import argparse
 import logging
 import yaml
 import curses
+import atexit
 from typing import Dict, Any, Optional, List
 
+# Add parent directory to path
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 from dnac.core.api import Dnac
-from dnac.ui.colors import get_color, ColorPair
+from dnac.ui.colors import ColorPair, get_color, initialize_colors
+from dnac.ui.components import draw_standard_header_footer
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +26,16 @@ logging.basicConfig(
 )
 
 DEFAULT_CONFIG_FILE = "config.yaml"
+
+# Register cleanup function to ensure curses is properly shut down
+def cleanup_curses():
+    """Clean up curses on exit."""
+    try:
+        curses.endwin()
+    except:
+        pass
+
+atexit.register(cleanup_curses)
 
 
 def load_config(config_file: Optional[str] = None) -> Dict[str, Any]:
@@ -37,194 +51,173 @@ def load_config(config_file: Optional[str] = None) -> Dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def format_hierarchy(site_data, depth=0, is_last=False):
-    """Format site hierarchy as a tree structure with improved visual appearance."""
-    indent = "  " * depth
+def get_hierarchy(dnac) -> str:
+    """Get site hierarchy from Cisco DNA Center."""
+    response = dnac.get("dna/intent/api/v1/site")
     
-    # Determine connector symbol based on position in tree
-    connector = "└─" if is_last else "├─"
+    if not response:
+        return "Error: No response from DNA Center"
     
-    # Extract site type and name
-    site_type = ""
-    name = site_data.get("name", "Unknown")
-    
-    if "area" in site_data:
-        site_type = "Area"
-        name = site_data["area"]["name"]
-        parent_name = site_data["area"].get("parentName", "")
-        site_details = site_data["area"]
-    elif "building" in site_data:
-        site_type = "Building"
-        name = site_data["building"]["name"]
-        parent_name = site_data["building"].get("parentName", "")
-        site_details = site_data["building"]
-    elif "floor" in site_data:
-        site_type = "Floor"
-        name = site_data["floor"]["name"]
-        parent_name = site_data["floor"].get("parentName", "")
-        site_details = site_data["floor"]
-    else:
-        site_details = {}
-        parent_name = ""
-    
-    # Format site information
-    site_id = site_details.get("id", "")
-    site_addr = site_details.get("address", "")
-    
-    # Create base output line with tree structure
-    output = f"{indent}{connector} {name}"
-    
-    # Add type and additional details when available
-    type_str = f" ({site_type})" if site_type else ""
-    addr_str = f" - {site_addr}" if site_addr and site_type == "Building" else ""
-    
-    output += f"{type_str}{addr_str}\n"
-    
-    # Process children recursively with proper tree structure
-    children = site_data.get("children", [])
-    for i, child in enumerate(children):
-        is_last_child = (i == len(children) - 1)
-        child_indent = "  " * (depth + 1)
-        # Add connecting lines for better visual structure
-        output += format_hierarchy(child, depth + 1, is_last_child)
-    
-    return output
-
-
-def get_hierarchy_with_details(dnac, args, stdscr=None):
-    """Fetch site hierarchy with additional details from DNAC."""
     try:
-        # Get site topology
-        if stdscr:
-            stdscr.addstr(0, 2, "Fetching site hierarchy...")
-            stdscr.refresh()
-        
-        sites_response = dnac.get("site", ver="v1")
-        
-        if hasattr(sites_response, 'response') and hasattr(sites_response.response, 'json'):
-            sites_data = sites_response.response.json()
+        # Ensure we have a valid JSON response
+        if hasattr(response, 'json') and callable(response.json):
+            data = response.json()
             
-            # Handle the response format
-            if isinstance(sites_data, dict) and 'response' in sites_data:
-                sites_data = sites_data['response']
-            
-            # Sometimes the API returns a list instead of the expected hierarchy
-            if isinstance(sites_data, list):
-                output = "Global\n"
+            if isinstance(data, dict) and 'response' in data:
+                sites = data['response']
                 
-                # Process each top-level site
-                for i, site in enumerate(sites_data):
-                    if stdscr:
-                        stdscr.addstr(1, 2, f"Processing site {i+1}/{len(sites_data)}...")
-                        stdscr.refresh()
-                    
-                    is_last = (i == len(sites_data) - 1)
-                    connector = "└─" if is_last else "├─"
-                    
-                    if 'name' in site:
-                        site_id = site.get('id', 'unknown')
-                        site_name = site.get('name', 'Unknown')
-                        output += f"  {connector} {site_name}\n"
+                # Format hierarchy
+                output = []
+                output.append("Site Hierarchy:")
+                output.append("---------------")
+                
+                # Process global site first
+                output.append("Global")
+                
+                # Helper function to find child sites
+                def find_children(parent_id, level=1):
+                    children = []
+                    for site in sites:
+                        # Parse site hierarchy to check parent
+                        hierarchy = site.get('siteHierarchy', '')
+                        if hierarchy.startswith(parent_id + '/') and hierarchy.count('/') == level:
+                            children.append(site)
+                    return children
+                
+                # Find top-level sites (direct children of Global)
+                for site in sites:
+                    if site.get('name') == 'Global':
+                        global_id = site.get('id')
                         
-                        # If this is a parent site, try to get its detailed hierarchy
-                        try:
-                            hierarchy_response = dnac.get(f"site/{site_id}/hierarchy", ver="v1")
-                            if hasattr(hierarchy_response, 'response') and hasattr(hierarchy_response.response, 'json'):
-                                hierarchy_data = hierarchy_response.response.json()
-                                if isinstance(hierarchy_data, dict) and hierarchy_data.get('hierarchy'):
-                                    output += format_hierarchy(hierarchy_data['hierarchy'], depth=2, is_last=is_last)
-                        except Exception as e:
-                            if args.verbose:
-                                output += f"    ├─ Error fetching hierarchy: {e}\n"
+                        # Process children recursively
+                        def process_site(site_id, level=0):
+                            children = find_children(site_id, level+1)
+                            for child in sorted(children, key=lambda x: x.get('name', '')):
+                                # Determine site type
+                                site_type = "Unknown"
+                                if "area" in str(child.get('additionalInfo', {})):
+                                    site_type = "Area"
+                                elif "building" in str(child.get('additionalInfo', {})):
+                                    site_type = "Building"
+                                elif "floor" in str(child.get('additionalInfo', {})):
+                                    site_type = "Floor"
+                                
+                                # Add indentation based on level
+                                indent = "  " * level
+                                output.append(f"{indent}├─ {child.get('name')} ({site_type})")
+                                
+                                # Process child's children
+                                process_site(child.get('id'), level+1)
+                        
+                        process_site(global_id)
                 
-                return output
+                return "\n".join(output)
             else:
-                # Handle the case where the API returns the full hierarchy directly
-                return format_hierarchy(sites_data)
-    
+                return f"Error: Unexpected response format - {data}"
+        else:
+            return "Error: Invalid response format"
     except Exception as e:
-        error_msg = f"Error processing site data: {e}"
-        if stdscr:
-            stdscr.addstr(0, 2, error_msg)
-            stdscr.refresh()
-        return error_msg
+        return f"Error parsing response: {str(e)}"
 
 
 def display_hierarchy(stdscr, hierarchy_output):
     """Display the hierarchy in a scrollable window."""
-    # Get screen dimensions
-    h, w = stdscr.getmaxyx()
-    
-    # Clear screen
-    stdscr.clear()
-    
-    # Draw title
-    title = "Site Hierarchy"
     try:
-        # Draw title bar with background
-        stdscr.attron(get_color(ColorPair.HEADER, bold=True))
-        for x in range(w):
-            stdscr.addstr(0, x, " ")
-        stdscr.addstr(0, (w - len(title)) // 2, title)
-        stdscr.attroff(get_color(ColorPair.HEADER, bold=True))
-    except:
-        # Fallback if styling fails
-        stdscr.addstr(0, (w - len(title)) // 2, title, curses.A_BOLD)
-    
-    # Split output into lines
-    lines = hierarchy_output.split('\n')
-    
-    # Initialize scroll position
-    scroll_pos = 0
-    max_scroll = max(0, len(lines) - (h - 3))  # Leave room for header and footer
-    
-    while True:
-        # Clear content area
-        for y in range(1, h-1):
-            stdscr.addstr(y, 0, " " * w)
+        # Set environment variable to reduce delay for ESC key
+        os.environ.setdefault('ESCDELAY', '25')
         
-        # Display visible lines
-        for y, line in enumerate(lines[scroll_pos:scroll_pos + h - 3], 1):
-            if y >= h - 1:
+        # Initialize colors
+        initialize_colors()
+        
+        # Hide cursor
+        curses.curs_set(0)
+        
+        # Get window dimensions
+        h, w = stdscr.getmaxyx()
+        
+        # Split hierarchy into lines
+        lines = hierarchy_output.split('\n')
+        
+        # Calculate max scroll position
+        max_scroll = max(0, len(lines) - (h - 3))
+        
+        # Current scroll position
+        scroll_pos = 0
+        
+        # Leave room for header and footer
+        
+        while True:
+            # Clear screen
+            stdscr.clear()
+            
+            # Draw standard header/footer
+            content_start = draw_standard_header_footer(
+                stdscr, 
+                title="Cisco Catalyst Centre",
+                subtitle="Site Hierarchy",
+                footer_text="↑/↓: Scroll | PgUp/PgDn: Page | q: Quit"
+            )
+            
+            # Available display height
+            display_height = h - content_start - 2
+            
+            # Display visible lines
+            for y, line in enumerate(lines[scroll_pos:scroll_pos + display_height], 0):
+                if content_start + y >= h - 1:
+                    break
+                try:
+                    # Truncate line if too long
+                    if len(line) > w - 2:
+                        line = line[:w-5] + "..."
+                    stdscr.addstr(content_start + y, 1, line)
+                except:
+                    continue
+            
+            # Show scroll position if needed
+            if max_scroll > 0:
+                scroll_percent = (scroll_pos / max_scroll) * 100
+                scroll_info = f"Scroll: {scroll_percent:.1f}%"
+                try:
+                    stdscr.addstr(h-2, w - len(scroll_info) - 2, scroll_info)
+                except:
+                    pass
+                
+                # Show scroll indicators
+                if scroll_pos > 0:
+                    try:
+                        stdscr.addstr(content_start, w // 2, "▲")
+                    except:
+                        pass
+                if scroll_pos < max_scroll:
+                    try:
+                        stdscr.addstr(h-2, w // 2, "▼")
+                    except:
+                        pass
+            
+            stdscr.refresh()
+            
+            # Handle input
+            key = stdscr.getch()
+            
+            if key == curses.KEY_UP and scroll_pos > 0:
+                scroll_pos -= 1
+            elif key == curses.KEY_DOWN and scroll_pos < max_scroll:
+                scroll_pos += 1
+            elif key == curses.KEY_PPAGE:  # Page Up
+                scroll_pos = max(0, scroll_pos - (display_height - 1))
+            elif key == curses.KEY_NPAGE:  # Page Down
+                scroll_pos = min(max_scroll, scroll_pos + (display_height - 1))
+            elif key == ord('q'):
                 break
-            try:
-                # Truncate line if too long
-                if len(line) > w - 2:
-                    line = line[:w-5] + "..."
-                stdscr.addstr(y, 1, line)
-            except:
-                continue
-        
-        # Show navigation help
-        help_text = "↑/↓: Scroll | PgUp/PgDn: Page | q: Quit"
-        stdscr.addstr(h-1, 2, help_text)
-        
-        # Show scroll position
-        if max_scroll > 0:
-            scroll_percent = (scroll_pos / max_scroll) * 100
-            scroll_info = f"Scroll: {scroll_percent:.1f}%"
-            stdscr.addstr(h-1, w - len(scroll_info) - 2, scroll_info)
-        
-        stdscr.refresh()
-        
-        # Handle input
-        key = stdscr.getch()
-        
-        if key == curses.KEY_UP and scroll_pos > 0:
-            scroll_pos -= 1
-        elif key == curses.KEY_DOWN and scroll_pos < max_scroll:
-            scroll_pos += 1
-        elif key == curses.KEY_PPAGE:  # Page Up
-            scroll_pos = max(0, scroll_pos - (h - 3))
-        elif key == curses.KEY_NPAGE:  # Page Down
-            scroll_pos = min(max_scroll, scroll_pos + (h - 3))
-        elif key == ord('q'):
-            break
+    except Exception as e:
+        # Log any exceptions in the display function
+        logging.error(f"Error in display_hierarchy: {str(e)}")
+        raise
 
 
 def main():
     """Main entry point for the application."""
-    parser = argparse.ArgumentParser(description="Display site hierarchy from Cisco Catalyst Centre")
+    parser = argparse.ArgumentParser(description="View site hierarchy from Cisco Catalyst Centre")
     parser.add_argument("-c", "--config", help=f"Config file (default: {DEFAULT_CONFIG_FILE})")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
@@ -233,43 +226,40 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
         logging.getLogger("urllib3.connectionpool").setLevel(logging.DEBUG)
 
-    try:
-        # Load configuration
-        config = load_config(args.config)
-        
-        # Extract nested configuration values
-        server_config = config.get("server", {})
-        hostname = server_config.get("host")
-        verify = server_config.get("verify_ssl", False)
-        
-        auth_config = config.get("auth", {})
-        username = auth_config.get("username")
-        password = auth_config.get("password")
-        
-        if not all([hostname, username, password]):
-            print("Missing required configuration: hostname, username, or password")
-            sys.exit(1)
-        
-        # Initialize DNAC client
-        dnac = Dnac(hostname)
-        
-        # Set SSL verification
-        dnac.verify = verify
+    # Load configuration
+    config = load_config(args.config)
+    
+    # Extract nested configuration values
+    server_config = config.get("server", {})
+    hostname = server_config.get("host")
+    verify = server_config.get("verify_ssl", False)
+    
+    auth_config = config.get("auth", {})
+    username = auth_config.get("username")
+    password = auth_config.get("password")
+    
+    if not all([hostname, username, password]):
+        print("Missing required configuration: hostname, username, or password")
+        sys.exit(1)
+    
+    # Initialize DNAC client with updated class
+    dnac = Dnac(hostname)
+    
+    # Set SSL verification
+    dnac.verify = verify
 
+    try:
         # Login and get token
         dnac.login(username, password)
+        print("Successfully authenticated")
         
-        # Get hierarchy data
-        hierarchy_output = get_hierarchy_with_details(dnac, args)
+        # Get hierarchy
+        print("Fetching site hierarchy...")
+        hierarchy_output = get_hierarchy(dnac)
         
-        # Check if we're running in a terminal that supports curses
-        if os.isatty(sys.stdout.fileno()):
-            # Display in curses interface
-            curses.wrapper(lambda stdscr: display_hierarchy(stdscr, hierarchy_output))
-        else:
-            # Print output directly if not in a terminal
-            print(hierarchy_output)
-
+        # Use only curses.wrapper, which handles initialization and cleanup properly
+        curses.wrapper(display_hierarchy, hierarchy_output)
+        
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)

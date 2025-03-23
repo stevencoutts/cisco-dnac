@@ -7,9 +7,18 @@ import sys
 import argparse
 import logging
 import yaml
+import curses
+import atexit
 from typing import Dict, Any, Optional, List
 
+# Add parent directory to path
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 from dnac.core.api import Dnac
+from dnac.ui.colors import ColorPair, get_color, initialize_colors
+from dnac.ui.components import draw_standard_header_footer
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +27,16 @@ logging.basicConfig(
 )
 
 DEFAULT_CONFIG_FILE = "config.yaml"
+
+# Register cleanup function to ensure curses is properly shut down
+def cleanup_curses():
+    """Clean up curses on exit."""
+    try:
+        curses.endwin()
+    except:
+        pass
+
+atexit.register(cleanup_curses)
 
 
 def load_config(config_file: Optional[str] = None) -> Dict[str, Any]:
@@ -31,6 +50,170 @@ def load_config(config_file: Optional[str] = None) -> Dict[str, Any]:
 
     with open(config_file) as f:
         return yaml.safe_load(f)
+
+
+def get_devices(dnac) -> List[Dict[str, Any]]:
+    """Get network devices from Cisco DNA Center."""
+    response = dnac.get("dna/intent/api/v1/network-device")
+    
+    if not response:
+        return []
+    
+    try:
+        if hasattr(response, 'json') and callable(response.json):
+            devices_data = response.json()
+            
+            # Check if response is a dict/list
+            if isinstance(devices_data, (dict, list)):
+                # If it's a dict, it might have a 'response' key with the actual data
+                if isinstance(devices_data, dict) and 'response' in devices_data:
+                    devices_data = devices_data['response']
+                
+                return devices_data
+    except Exception as e:
+        logging.error(f"Error processing devices: {e}")
+    
+    return []
+
+
+def display_devices(stdscr, devices):
+    """Display devices in a scrollable window."""
+    try:
+        # Set environment variable to reduce delay for ESC key
+        os.environ.setdefault('ESCDELAY', '25')
+        
+        # Initialize colors
+        initialize_colors()
+        
+        # Hide cursor
+        curses.curs_set(0)
+        
+        # Get window dimensions
+        h, w = stdscr.getmaxyx()
+        
+        # Current scroll position
+        scroll_pos = 0
+        
+        # Format device info
+        lines = []
+        
+        # Add header
+        lines.append("Network Devices:")
+        lines.append("---------------")
+        
+        # Format column headers
+        fmt = "{:20} {:16} {:20} {:16} {:12} {:10}"
+        lines.append(fmt.format("Hostname", "Management IP", "Platform", "Serial", "SW Version", "Status"))
+        lines.append("-" * min(w-2, 100))
+        
+        # Format device rows
+        for device in devices:
+            try:
+                device_line = fmt.format(
+                    str(device.get('hostname', 'N/A'))[:20],
+                    str(device.get('managementIpAddress', 'N/A'))[:16],
+                    str(device.get('platformId', 'N/A'))[:20], 
+                    str(device.get('serialNumber', 'N/A'))[:16],
+                    str(device.get('softwareVersion', 'N/A'))[:12],
+                    str(device.get('reachabilityStatus', 'N/A'))[:10]
+                )
+                lines.append(device_line)
+            except Exception as e:
+                lines.append(f"Error formatting device: {str(e)}")
+        
+        # Add footer
+        lines.append("-" * min(w-2, 100))
+        lines.append(f"Total devices: {len(devices)}")
+        
+        # Calculate max scroll position
+        max_scroll = max(0, len(lines) - (h - 4))
+        
+        while True:
+            # Clear screen
+            stdscr.clear()
+            
+            # Draw standard header/footer
+            content_start = draw_standard_header_footer(
+                stdscr, 
+                title="Cisco Catalyst Centre",
+                subtitle="Network Devices",
+                footer_text="↑/↓: Scroll | PgUp/PgDn: Page | q: Quit"
+            )
+            
+            # Available display height
+            display_height = h - content_start - 2
+            
+            # Display visible lines
+            for y, line in enumerate(lines[scroll_pos:scroll_pos + display_height], 0):
+                if content_start + y >= h - 1:
+                    break
+                try:
+                    # Highlight headers
+                    if y < 4 and scroll_pos == 0:
+                        stdscr.attron(get_color(ColorPair.HIGHLIGHT))
+                        stdscr.addstr(content_start + y, 1, line[:w-2])
+                        stdscr.attroff(get_color(ColorPair.HIGHLIGHT))
+                    else:
+                        # Color status based on value
+                        if y > 3 and "Reachable" in line[-10:]:
+                            parts = line.rsplit(' ', 1)
+                            if len(parts) == 2:
+                                stdscr.addstr(content_start + y, 1, parts[0])
+                                stdscr.attron(get_color(ColorPair.SUCCESS))
+                                stdscr.addstr(content_start + y, 1 + len(parts[0]), parts[1])
+                                stdscr.attroff(get_color(ColorPair.SUCCESS))
+                        elif y > 3 and "Unreachable" in line[-10:]:
+                            parts = line.rsplit(' ', 1)
+                            if len(parts) == 2:
+                                stdscr.addstr(content_start + y, 1, parts[0])
+                                stdscr.attron(get_color(ColorPair.ERROR))
+                                stdscr.addstr(content_start + y, 1 + len(parts[0]), parts[1])
+                                stdscr.attroff(get_color(ColorPair.ERROR))
+                        else:
+                            stdscr.addstr(content_start + y, 1, line[:w-2])
+                except:
+                    continue
+            
+            # Show scroll indicators if needed
+            if scroll_pos > 0:
+                try:
+                    stdscr.addstr(content_start, w // 2, "▲")
+                except:
+                    pass
+            if scroll_pos < max_scroll:
+                try:
+                    stdscr.addstr(h-2, w // 2, "▼")
+                except:
+                    pass
+            
+            # Show scroll position
+            if max_scroll > 0:
+                scroll_percent = (scroll_pos / max_scroll) * 100
+                scroll_info = f"Scroll: {scroll_percent:.1f}%"
+                try:
+                    stdscr.addstr(h-2, w - len(scroll_info) - 2, scroll_info)
+                except:
+                    pass
+            
+            stdscr.refresh()
+            
+            # Handle input
+            key = stdscr.getch()
+            
+            if key == curses.KEY_UP and scroll_pos > 0:
+                scroll_pos -= 1
+            elif key == curses.KEY_DOWN and scroll_pos < max_scroll:
+                scroll_pos += 1
+            elif key == curses.KEY_PPAGE:  # Page Up
+                scroll_pos = max(0, scroll_pos - (display_height - 1))
+            elif key == curses.KEY_NPAGE:  # Page Down
+                scroll_pos = min(max_scroll, scroll_pos + (display_height - 1))
+            elif key == ord('q'):
+                break
+    except Exception as e:
+        # Log any exceptions in the display function
+        logging.error(f"Error in display_devices: {str(e)}")
+        raise
 
 
 def main():
@@ -50,7 +233,6 @@ def main():
     # Extract nested configuration values
     server_config = config.get("server", {})
     hostname = server_config.get("host")
-    port = server_config.get("port")
     verify = server_config.get("verify_ssl", False)
     
     auth_config = config.get("auth", {})
@@ -61,7 +243,7 @@ def main():
         print("Missing required configuration: hostname, username, or password")
         sys.exit(1)
     
-    # Initialize DNAC client with updated class
+    # Initialize DNAC client
     dnac = Dnac(hostname)
     
     # Set SSL verification
@@ -73,107 +255,15 @@ def main():
         print("Successfully authenticated")
         
         # Get network devices
-        print("\nFetching network devices...")
-        devices_response = dnac.get("dna/intent/api/v1/network-device")
+        print("Fetching network devices...")
+        devices = get_devices(dnac)
         
-        # Display devices
-        fmt = "{:20} {:16} {:20} {:16} {:12} {:10}"
-        print("\nNetwork Devices:")
-        print(fmt.format("Hostname", "Management IP", "Platform", "Serial", "SW Version", "Status"))
-        print("-" * 100)
+        # Handle displaying devices with proper curses cleanup
+        if devices:
+            curses.wrapper(display_devices, devices)
+        else:
+            print("No devices found or error occurred")
         
-        device_count = 0
-        try:
-            if hasattr(devices_response, 'json') and callable(devices_response.json):
-                devices_data = devices_response.json()
-                
-                # Check if response is a string or dict/list
-                if isinstance(devices_data, (dict, list)):
-                    # If it's a dict, it might have a 'response' key with the actual data
-                    if isinstance(devices_data, dict) and 'response' in devices_data:
-                        devices_data = devices_data['response']
-                    
-                    device_count = len(devices_data)
-                    
-                    for device in devices_data:
-                        try:
-                            print(fmt.format(
-                                str(device.get('hostname', 'N/A'))[:20],
-                                str(device.get('managementIpAddress', 'N/A'))[:16],
-                                str(device.get('platformId', 'N/A'))[:20], 
-                                str(device.get('serialNumber', 'N/A'))[:16],
-                                str(device.get('softwareVersion', 'N/A'))[:12],
-                                str(device.get('reachabilityStatus', 'N/A'))[:10]
-                            ))
-                        except Exception as e:
-                            print(f"Error processing device: {e}")
-                            print(f"Device data: {repr(device)[:100]}")
-                else:
-                    print(f"Unexpected response format: {type(devices_data)}")
-                    print(f"Response: {repr(devices_data)[:100]}")
-        except Exception as e:
-            print(f"Error processing devices: {e}")
-            
-        print("-" * 100)
-        print(f"Total devices: {device_count}")
-        
-        # Get more detailed information about devices
-        print("\nDetailed Device Information:")
-        if device_count > 0:
-            # Get the first device ID for detailed info
-            device_id = None
-            if isinstance(devices_data, list) and len(devices_data) > 0:
-                device_id = devices_data[0].get('id')
-                
-            if device_id:
-                print(f"\nFetching details for device: {devices_data[0].get('hostname')}")
-                try:
-                    device_details = dnac.get(f"dna/intent/api/v1/network-device/{device_id}")
-                    if hasattr(device_details, 'json') and callable(device_details.json):
-                        details = device_details.json()
-                        
-                        # Handle response being inside 'response' key
-                        if isinstance(details, dict) and 'response' in details:
-                            details = details['response']
-                            
-                        print(f"Location: {details.get('location', 'N/A')}")
-                        print(f"Uptime: {details.get('upTime', 'N/A')}")
-                        print(f"Last Updated: {details.get('lastUpdateTime', 'N/A')}")
-                        print(f"Role: {details.get('role', 'N/A')}")
-                        
-                        # Print interfaces if available
-                        print("\nInterfaces:")
-                        try:
-                            interfaces = dnac.get(f"dna/intent/api/v1/interface/network-device/{device_id}")
-                            if hasattr(interfaces, 'json') and callable(interfaces.json):
-                                interfaces_data = interfaces.json()
-                                
-                                # Handle response being inside 'response' key
-                                if isinstance(interfaces_data, dict) and 'response' in interfaces_data:
-                                    interfaces_data = interfaces_data['response']
-                                
-                                interface_fmt = "{:30} {:15} {:10} {:10}"
-                                print(interface_fmt.format("Name", "IP Address", "Status", "Speed"))
-                                print("-" * 70)
-                                
-                                # Get first 5 interfaces or fewer if less are available
-                                interfaces_to_show = interfaces_data[:5] if isinstance(interfaces_data, list) else []
-                                
-                                for interface in interfaces_to_show:
-                                    print(interface_fmt.format(
-                                        str(interface.get('portName', 'N/A'))[:30],
-                                        str(interface.get('ipv4Address', 'N/A'))[:15],
-                                        str(interface.get('status', 'N/A'))[:10],
-                                        str(interface.get('speed', 'N/A'))[:10]
-                                    ))
-                                
-                                if isinstance(interfaces_data, list):
-                                    print(f"(Showing {min(5, len(interfaces_data))}/{len(interfaces_data)} interfaces)")
-                        except Exception as e:
-                            print(f"Could not fetch interfaces: {e}")
-                except Exception as e:
-                    print(f"Could not fetch device details: {e}")
-
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)

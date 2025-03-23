@@ -112,50 +112,91 @@ def draw_menu_item(window, label: str, y: int, is_selected: bool, x: int = None)
         window.addstr(y, x, label)
         window.attroff(get_color(ColorPair.NORMAL))
 
-def draw_status_indicator(window, enabled: bool, text_enabled: str = "● ENABLED", 
-                      text_disabled: str = "○ DISABLED", y: int = None, x: int = None) -> None:
+def draw_status_indicator(window, is_enabled: bool, text_enabled: str = "ENABLED", text_disabled: str = "DISABLED", y: int = None, x: int = 0) -> None:
     """
-    Draw a status indicator showing enabled/disabled state.
+    Draw a status indicator with appropriate styling.
     
     Args:
         window: The curses window to draw on
-        enabled: Whether the status is enabled
+        is_enabled: Whether the status is enabled
         text_enabled: Text to display when enabled
         text_disabled: Text to display when disabled
-        y: Optional y position (defaults to top-right)
-        x: Optional x position (defaults to calculated position)
+        y: The y position to draw at (centered if None)
+        x: The x position to draw at
     """
     h, w = window.getmaxyx()
     
-    # Default position in top-right corner
+    # Use bottom if y is not specified
     if y is None:
-        y = 1
+        y = h - 1
     
-    # Create a box for the status
-    status_text = text_enabled if enabled else text_disabled
+    # Select appropriate color
+    color = ColorPair.SUCCESS if is_enabled else ColorPair.ERROR
+    text = text_enabled if is_enabled else text_disabled
     
-    # Calculate default x position if not provided
-    if x is None:
-        x = w - len(status_text) - 4  # With some padding
+    # Draw the indicator
+    window.attron(get_color(color))
+    window.addstr(y, x, text)
+    window.attroff(get_color(color))
+
+def draw_standard_header_footer(window, title: str = "Cisco Catalyst Centre", subtitle: str = None,
+                              footer_text: str = None, fabric_enabled: bool = None) -> int:
+    """
+    Draw a standard header and footer for all screens to maintain consistent appearance.
     
-    # Draw a background box for the status
-    try:
-        # Use proper color based on status
-        if enabled:
-            color = ColorPair.SUCCESS
-            prefix = "● "
-        else:
-            color = ColorPair.ERROR  # Use ERROR (red) instead of DISABLED for better visibility
-            prefix = "● "  # Use filled circle for both states, but with different colors
+    Args:
+        window: The curses window to draw on
+        title: The title to display in the header
+        subtitle: Optional subtitle to display below the header
+        footer_text: Optional footer text (defaults to navigation help)
+        fabric_enabled: Whether fabric is enabled (if None, status indicator is not shown)
         
-        # Draw with proper styling
-        window.attron(get_color(color, bold=True))
+    Returns:
+        int: The y-coordinate where content should start
+    """
+    # Get window dimensions
+    h, w = window.getmaxyx()
+    
+    # Draw title bar with background
+    window.attron(get_color(ColorPair.HEADER, bold=True))
+    for x in range(w):
+        window.addstr(0, x, " ")
+    window.addstr(0, (w - len(title)) // 2, title)
+    window.attroff(get_color(ColorPair.HEADER, bold=True))
+    
+    # Start position for content
+    content_start_y = 1
+    
+    # Draw subtitle if provided
+    if subtitle:
+        # Add a subtle separator line
+        window.attron(get_color(ColorPair.NORMAL))
+        for x in range(w):
+            window.addstr(1, x, "─")
+        window.attroff(get_color(ColorPair.NORMAL))
         
-        # Draw status label
-        status_label = prefix + (text_enabled.replace("●", "") if enabled else text_disabled.replace("●", "").replace("○", ""))
-        window.addstr(y, x, status_label)
+        # Display subtitle with styling
+        window.attron(get_color(ColorPair.HIGHLIGHT))
+        window.addstr(2, 2, subtitle)
+        window.attroff(get_color(ColorPair.HIGHLIGHT))
         
-        window.attroff(get_color(color, bold=True))
-    except curses.error:
-        # Handle potential drawing errors
-        pass 
+        # Content starts below subtitle
+        content_start_y = 4
+    
+    # Draw footer
+    if footer_text is None:
+        footer_text = "↑↓: Navigate  Enter: Select  Esc/q: Quit"
+    
+    window.attron(get_color(ColorPair.HIGHLIGHT))
+    window.addstr(h-1, (w - len(footer_text)) // 2, footer_text)
+    window.attroff(get_color(ColorPair.HIGHLIGHT))
+    
+    # Draw fabric status indicator if provided
+    if fabric_enabled is not None:
+        draw_status_indicator(window, fabric_enabled, 
+                            text_enabled="● FABRIC ENABLED", 
+                            text_disabled="● FABRIC DISABLED",
+                            y=h-2, x=2)
+    
+    # Return where content should start
+    return content_start_y 

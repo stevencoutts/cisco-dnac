@@ -15,11 +15,15 @@ import itertools
 import time
 from typing import Dict, Any, Optional, List
 
+# Add parent directory to path so we can import modules
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 from dnac.core.api import Dnac
+from dnac.ui.colors import ColorPair, get_color, initialize_colors
+from dnac.ui.components import draw_standard_header_footer
 from dnac.ui.forms import show_form, show_dropdown_menu
-from dnac.ui.colors import initialize_colors, ColorPair, get_color
-from dnac.cli.loading import show_loading_screen
-from dnac.ui.components import draw_title, draw_cisco_logo, draw_progress_bar, draw_spinner
 
 # Configure logging
 logging.basicConfig(
@@ -178,21 +182,21 @@ def get_site_name(stdscr):
     # Clear screen
     stdscr.clear()
     
-    # Draw title
-    try:
-        title = "Enter Site Name"
-        stdscr.addstr(0, 2, title)
-    except curses.error:
-        pass
+    # Draw standard header
+    content_start = draw_standard_header_footer(
+        stdscr, 
+        title="Cisco Catalyst Centre",
+        subtitle="Enter Site Name"
+    )
     
     # Draw prompt
     prompt = "Site Name: "
     try:
-        stdscr.addstr(2, 4, prompt)
+        stdscr.addstr(content_start + 1, 4, prompt)
         
         # Draw note
         note = "(Press Enter when done)"
-        stdscr.addstr(3, 4, note)
+        stdscr.addstr(content_start + 2, 4, note)
     except curses.error:
         pass
     
@@ -204,7 +208,7 @@ def get_site_name(stdscr):
     # Get input
     try:
         # Position cursor
-        stdscr.move(2, 4 + len(prompt))
+        stdscr.move(content_start + 1, 4 + len(prompt))
         
         # Get user input
         site_name = stdscr.getstr(max_len).decode('utf-8').strip()
@@ -219,6 +223,190 @@ def get_site_name(stdscr):
         pass
     
     return site_name
+
+
+def select_site_type(stdscr):
+    """Display a menu to select site type."""
+    # Initialize colors
+    initialize_colors()
+    
+    # Hide cursor
+    try:
+        curses.curs_set(0)
+    except:
+        pass
+    
+    # Site type options
+    site_types = [
+        {"name": "Area", "value": "area"},
+        {"name": "Building", "value": "building"},
+        {"name": "Floor", "value": "floor"}
+    ]
+    
+    # Current selection
+    current_idx = 0
+    
+    while True:
+        # Clear screen
+        stdscr.clear()
+        
+        # Draw standard header/footer
+        content_start = draw_standard_header_footer(
+            stdscr, 
+            title="Cisco Catalyst Centre",
+            subtitle="Select Site Type",
+            footer_text="↑↓: Navigate | Enter: Select | q: Cancel"
+        )
+        
+        # Get window dimensions
+        h, w = stdscr.getmaxyx()
+        
+        # Draw options
+        for i, site_type in enumerate(site_types):
+            # Calculate y position
+            y = content_start + 1 + i
+            
+            # Skip if outside screen
+            if y >= h:
+                continue
+                
+            # Highlight selected item
+            if i == current_idx:
+                stdscr.attron(curses.A_REVERSE)
+                
+            # Center the option
+            option_text = site_type["name"]
+            x = (w - len(option_text)) // 2
+            
+            # Draw the option
+            try:
+                stdscr.addstr(y, x, option_text)
+            except curses.error:
+                pass
+                
+            # Turn off highlight
+            if i == current_idx:
+                stdscr.attroff(curses.A_REVERSE)
+        
+        # Refresh
+        stdscr.refresh()
+        
+        # Get key press
+        key = stdscr.getch()
+        
+        if key == curses.KEY_UP:
+            current_idx = max(0, current_idx - 1)
+        elif key == curses.KEY_DOWN:
+            current_idx = min(len(site_types) - 1, current_idx + 1)
+        elif key == ord('\n'):  # Enter key
+            return site_types[current_idx]["value"]
+        elif key == ord('q'):
+            return None
+
+
+def show_parent_site_selection(stdscr, available_sites):
+    """Show a scrollable list of parent sites to select from."""
+    # Initialize colors
+    initialize_colors()
+    
+    # Hide cursor
+    try:
+        curses.curs_set(0)
+    except:
+        pass
+    
+    # Get window dimensions
+    h, w = stdscr.getmaxyx()
+    
+    # Add "Global" as the first option
+    sites_with_global = [{"name": "Global", "id": "global", "type": "global"}] + available_sites
+    
+    # Current selection and scroll position
+    current_idx = 0
+    scroll_pos = 0
+    
+    # Calculate max scroll position (if needed)
+    max_scroll = max(0, len(sites_with_global) - (h - 6))
+    
+    while True:
+        # Clear screen
+        stdscr.clear()
+        
+        # Draw standard header/footer
+        content_start = draw_standard_header_footer(
+            stdscr,
+            title="Cisco Catalyst Centre",
+            subtitle="Select Parent Site",
+            footer_text="↑↓: Navigate | Enter: Select | q: Cancel"
+        )
+        
+        # Available display height
+        display_height = h - content_start - 2
+        
+        # Display parent sites with scrolling
+        for i in range(min(display_height, len(sites_with_global))):
+            idx = scroll_pos + i
+            if idx >= len(sites_with_global):
+                break
+                
+            y = content_start + i
+            site = sites_with_global[idx]
+            
+            # Format site string
+            site_name = site["name"]
+            site_type = site["type"].capitalize() if "type" in site else "Site"
+            
+            if "parentName" in site:
+                site_str = f"{site_name} ({site_type} in {site['parentName']})"
+            else:
+                site_str = f"{site_name} ({site_type})"
+            
+            # Truncate if too long
+            if len(site_str) > w - 4:
+                site_str = site_str[:w-7] + "..."
+            
+            # Highlight current selection
+            is_selected = (idx == current_idx)
+            if is_selected:
+                stdscr.attron(curses.A_REVERSE)
+            
+            stdscr.addstr(y, 2, site_str)
+            
+            if is_selected:
+                stdscr.attroff(curses.A_REVERSE)
+        
+        # Show scrolling indicators if needed
+        if scroll_pos > 0:
+            stdscr.addstr(content_start, w // 2, "▲")
+        if scroll_pos + display_height < len(sites_with_global):
+            stdscr.addstr(content_start + display_height - 1, w // 2, "▼")
+        
+        stdscr.refresh()
+        
+        # Get key press
+        key = stdscr.getch()
+        
+        if key == curses.KEY_UP and current_idx > 0:
+            current_idx -= 1
+            # Adjust scroll position if needed
+            if current_idx < scroll_pos:
+                scroll_pos = current_idx
+        elif key == curses.KEY_DOWN and current_idx < len(sites_with_global) - 1:
+            current_idx += 1
+            # Adjust scroll position if needed
+            if current_idx >= scroll_pos + display_height:
+                scroll_pos = current_idx - display_height + 1
+        elif key == ord('\n'):  # Enter key
+            selected = sites_with_global[current_idx]
+            return selected["name"], selected["id"]
+        elif key == ord('q'):  # Cancel
+            return None, None
+        elif key == curses.KEY_PPAGE:  # Page Up
+            scroll_pos = max(0, scroll_pos - display_height)
+            current_idx = max(0, current_idx - display_height)
+        elif key == curses.KEY_NPAGE:  # Page Down
+            scroll_pos = min(max_scroll, scroll_pos + display_height)
+            current_idx = min(len(sites_with_global) - 1, current_idx + display_height)
 
 
 def create_site_screen(stdscr, site_type, dnac, config, logger):
@@ -251,26 +439,24 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
         # Clear screen
         stdscr.clear()
         
-        # Set up header
-        title = f"Create New {site_type.capitalize()}"
-        startx = max(0, (curses.COLS - len(title)) // 2)
-        stdscr.addstr(1, startx, title, curses.A_BOLD)
+        # Draw standard header/footer
+        content_start = draw_standard_header_footer(
+            stdscr, 
+            title="Cisco Catalyst Centre",
+            subtitle=f"Create New {site_type.capitalize()}",
+            footer_text="UP/DOWN: Navigate | ENTER: Edit field | S: Save | Q: Cancel"
+        )
         
         # Draw input fields
-        stdscr.addstr(3, 2, "Site Name:", curses.A_BOLD)
-        stdscr.addstr(3, 15, site_name)
+        stdscr.addstr(content_start + 1, 2, "Site Name:", curses.A_BOLD)
+        stdscr.addstr(content_start + 1, 15, site_name)
         
-        stdscr.addstr(5, 2, "Parent Site:", curses.A_BOLD)
-        stdscr.addstr(5, 15, parent_site)
+        stdscr.addstr(content_start + 3, 2, "Parent Site:", curses.A_BOLD)
+        stdscr.addstr(content_start + 3, 15, parent_site)
         
         # Draw field cursor
-        cursor_y = 3 if current_field == 0 else 5
+        cursor_y = content_start + 1 if current_field == 0 else content_start + 3
         stdscr.addstr(cursor_y, 1, ">")
-        
-        # Draw footer with instructions
-        footer = "UP/DOWN: Navigate | ENTER: Edit field | S: Save | Q: Cancel"
-        startx = max(0, (curses.COLS - len(footer)) // 2)
-        stdscr.addstr(curses.LINES - 2, startx, footer, curses.A_REVERSE)
         
         # Refresh screen
         stdscr.refresh()
@@ -646,7 +832,7 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
             else:
                 # User cancelled the confirmation
                 pass
-        elif key == ord('q') or key == ord('Q'):  # Cancel
+        elif key == ord('q') or ord('Q'):  # Cancel
             if not saved and site_name:
                 if show_confirm(stdscr, "Discard changes?"):
                     return False
@@ -658,121 +844,131 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
 
 def add_site_ui(stdscr, args):
     """Main UI function for adding a site."""
-    # Get screen dimensions
-    h, w = stdscr.getmaxyx()
+    # Initialize colors
+    initialize_colors()
+    
+    # Hide cursor
+    try:
+        curses.curs_set(0)
+    except:
+        pass
+    
+    # Enable keypad mode for arrow keys
+    stdscr.keypad(True)
+    
+    # Set background
+    stdscr.bkgd(' ', get_color(ColorPair.NORMAL))
+    
+    # Load configuration
+    config = load_config(args.config)
+    
+    # Extract nested configuration values
+    server_config = config.get("server", {})
+    hostname = server_config.get("host")
+    verify = server_config.get("verify_ssl", False)
+    
+    auth_config = config.get("auth", {})
+    username = auth_config.get("username")
+    password = auth_config.get("password")
+    
+    if not all([hostname, username, password]):
+        stdscr.clear()
+        try:
+            content_start = draw_standard_header_footer(
+                stdscr, 
+                title="Cisco Catalyst Centre",
+                subtitle="Configuration Error"
+            )
+            
+            stdscr.addstr(content_start + 1, 2, "Missing required configuration: hostname, username, or password")
+            stdscr.addstr(content_start + 3, 2, "Press any key to exit...")
+            stdscr.refresh()
+        except curses.error:
+            pass
+        stdscr.getch()
+        return
+    
+    # Initialize DNAC client
+    dnac = Dnac(hostname)
+    
+    # Set SSL verification
+    dnac.verify = verify
     
     try:
-        # Load configuration
-        config = load_config(args.config)
-        
-        # Extract nested configuration values
-        server_config = config.get("server", {})
-        hostname = server_config.get("host")
-        verify = server_config.get("verify_ssl", False)
-        
-        auth_config = config.get("auth", {})
-        username = auth_config.get("username")
-        password = auth_config.get("password")
-        
-        if not all([hostname, username, password]):
-            raise ValueError("Missing required configuration: hostname, username, or password")
-        
-        # Initialize DNAC client
-        dnac = Dnac(hostname)
-        dnac.verify = verify
-        
-        # Show loading screen
-        stdscr.clear()
+        # Show initial loading screen
         try:
-            stdscr.addstr(0, 2, "Connecting to DNAC...")
+            stdscr.clear()
+            
+            content_start = draw_standard_header_footer(
+                stdscr, 
+                title="Cisco Catalyst Centre", 
+                subtitle="Connecting to API"
+            )
+            
+            stdscr.addstr(content_start + 2, 2, "Authenticating...")
             stdscr.refresh()
         except curses.error:
             pass
-        
+            
         # Login and get token
-        dnac.login(username, password)
-        
-        # Step 1: Select site type
-        site_types = [
-            {"name": "Area", "value": "area"},
-            {"name": "Building", "value": "building"},
-            {"name": "Floor", "value": "floor"}
-        ]
-        
-        stdscr.clear()
         try:
-            stdscr.addstr(0, 2, "Select site type:")
-            stdscr.refresh()
-        except curses.error:
-            pass
-        
-        selected_type = show_dropdown_menu(stdscr, [t["name"] for t in site_types], 1, 2)
-        if selected_type is None:
+            dnac.login(username, password)
+            logging.info("Successfully authenticated to Catalyst Centre")
+        except Exception as e:
+            stdscr.clear()
+            
+            try:
+                content_start = draw_standard_header_footer(
+                    stdscr, 
+                    title="Cisco Catalyst Centre",
+                    subtitle="Authentication Error"
+                )
+                
+                error_msg = f"Failed to authenticate: {str(e)}"
+                stdscr.addstr(content_start + 1, 2, error_msg[:80])
+                stdscr.addstr(content_start + 3, 2, "Press any key to exit...")
+                stdscr.refresh()
+            except curses.error:
+                pass
+                
+            stdscr.getch()
             return
         
-        site_type = site_types[selected_type]["value"]
+        # Select site type
+        site_type = select_site_type(stdscr)
         
-        # Step 2: Get site name
+        if site_type is None:
+            return  # User cancelled
+        
+        # Get site name
         site_name = get_site_name(stdscr)
+        
         if not site_name:
-            stdscr.clear()
-            try:
-                stdscr.addstr(0, 2, "Site name is required. Press any key to return.")
-                stdscr.refresh()
-                stdscr.getch()
-            except curses.error:
-                pass
-            return
+            return  # User cancelled
         
-        # Step 3: Select parent site
-        stdscr.clear()
-        try:
-            stdscr.addstr(0, 2, "Fetching available parent sites...")
-            stdscr.refresh()
-        except curses.error:
-            pass
+        # Get parent sites and select one
+        available_sites = get_parent_sites(dnac)
+        parent_site, parent_id = show_parent_site_selection(stdscr, available_sites)
         
-        parent_sites = get_parent_sites(dnac)
-        if parent_sites:
-            stdscr.clear()
-            try:
-                stdscr.addstr(0, 2, "Select parent site (optional):")
-                stdscr.refresh()
-            except curses.error:
-                pass
-            
-            # Create list of site names for display
-            site_names = ["None (Global)"]
-            for site in parent_sites:
-                site_names.append(site.get("name", "Unknown"))
-            
-            selected_parent = show_dropdown_menu(stdscr, site_names, 1, 2)
-            if selected_parent is None:
-                return
-            # If "None (Global)" is selected (index 0), use None as parent
-            parent_site = None if selected_parent == 0 else parent_sites[selected_parent - 1]["name"]
-            parent_id = None if selected_parent == 0 else parent_sites[selected_parent - 1]["id"]
-            
-            # Log the selected parent site details
-            if parent_site:
-                logging.debug(f"Selected parent site: {parent_site} (ID: {parent_id})")
-            else:
-                logging.debug("No parent site selected, using Global")
-        else:
-            parent_site = None
-            parent_id = None
+        if parent_site is None:
+            return  # User cancelled
         
         # Create site data
         site_data = create_site_data(site_type, site_name, parent_site, parent_id)
         
-        # Show confirmation
+        # Confirm creation
         stdscr.clear()
         try:
-            stdscr.addstr(0, 2, "Confirm site creation:")
-            stdscr.addstr(1, 4, f"Type: {site_type.title()}")
-            stdscr.addstr(2, 4, f"Name: {site_name}")
-            stdscr.addstr(3, 4, f"Parent: {parent_site if parent_site else 'Global'}")
-            stdscr.addstr(5, 2, "Press 'y' to confirm, any other key to cancel:")
+            content_start = draw_standard_header_footer(
+                stdscr, 
+                title="Cisco Catalyst Centre",
+                subtitle="Confirm Site Creation",
+                footer_text="Press 'y' to confirm, any other key to cancel"
+            )
+            
+            stdscr.addstr(content_start + 1, 4, f"Type: {site_type.title()}")
+            stdscr.addstr(content_start + 2, 4, f"Name: {site_name}")
+            stdscr.addstr(content_start + 3, 4, f"Parent: {parent_site if parent_site else 'Global'}")
             stdscr.refresh()
         except curses.error:
             pass
@@ -1116,7 +1312,24 @@ def add_site_ui(stdscr, args):
         stdscr.clear()
         logging.info(f"Successfully created site: {site_name} of type {site_type}")
         try:
-            stdscr.addstr(0, 2, "Site created successfully!")
+            content_start = draw_standard_header_footer(
+                stdscr, 
+                title="Cisco Catalyst Centre",
+                subtitle="Site Creation Result",
+                footer_text="Press any key to continue..."
+            )
+            
+            if success:
+                stdscr.attron(get_color(ColorPair.SUCCESS))
+                result_message = f"Successfully created {site_type}: {site_name}"
+                stdscr.addstr(content_start + 1, 2, result_message)
+                stdscr.attroff(get_color(ColorPair.SUCCESS))
+            else:
+                stdscr.attron(get_color(ColorPair.ERROR))
+                result_message = f"Failed to create {site_type}: {site_name}"
+                stdscr.addstr(content_start + 1, 2, result_message)
+                stdscr.addstr(content_start + 2, 2, "Check logs for details")
+                stdscr.attroff(get_color(ColorPair.ERROR))
             
             # Show site hierarchy
             stdscr.addstr(2, 2, "Current Site Hierarchy:")
@@ -1214,9 +1427,16 @@ def add_site_ui(stdscr, args):
     except Exception as e:
         stdscr.clear()
         try:
-            error_msg = f"Error creating site: {str(e)[:w-4]}"
-            stdscr.addstr(0, 2, error_msg)
-            stdscr.addstr(1, 2, "Press any key to continue...")
+            content_start = draw_standard_header_footer(
+                stdscr, 
+                title="Cisco Catalyst Centre",
+                subtitle="Error", 
+                footer_text="Press any key to exit..."
+            )
+            
+            error_msg = f"Error creating site: {str(e)}"
+            # Limit length of error message to fit on screen
+            stdscr.addstr(content_start + 1, 2, error_msg[:curses.COLS-4])
             stdscr.refresh()
         except curses.error:
             pass
