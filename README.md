@@ -215,6 +215,7 @@ The project uses:
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Author
+## Authors
 
+Steven Coutts
 Tim Dorssers
