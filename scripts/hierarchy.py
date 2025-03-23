@@ -9,9 +9,11 @@ import sys
 import argparse
 import logging
 import yaml
+import curses
 from typing import Dict, Any, Optional, List
 
 from dnac.core.api import Dnac
+from dnac.ui.colors import get_color, ColorPair
 
 # Configure logging
 logging.basicConfig(
@@ -89,11 +91,14 @@ def format_hierarchy(site_data, depth=0, is_last=False):
     return output
 
 
-def get_hierarchy_with_details(dnac, args):
+def get_hierarchy_with_details(dnac, args, stdscr=None):
     """Fetch site hierarchy with additional details from DNAC."""
     try:
         # Get site topology
-        print("Fetching site hierarchy...")
+        if stdscr:
+            stdscr.addstr(0, 2, "Fetching site hierarchy...")
+            stdscr.refresh()
+        
         sites_response = dnac.get("site", ver="v1")
         
         if hasattr(sites_response, 'response') and hasattr(sites_response.response, 'json'):
@@ -109,6 +114,10 @@ def get_hierarchy_with_details(dnac, args):
                 
                 # Process each top-level site
                 for i, site in enumerate(sites_data):
+                    if stdscr:
+                        stdscr.addstr(1, 2, f"Processing site {i+1}/{len(sites_data)}...")
+                        stdscr.refresh()
+                    
                     is_last = (i == len(sites_data) - 1)
                     connector = "└─" if is_last else "├─"
                     
@@ -134,7 +143,83 @@ def get_hierarchy_with_details(dnac, args):
                 return format_hierarchy(sites_data)
     
     except Exception as e:
-        return f"Error processing site data: {e}"
+        error_msg = f"Error processing site data: {e}"
+        if stdscr:
+            stdscr.addstr(0, 2, error_msg)
+            stdscr.refresh()
+        return error_msg
+
+
+def display_hierarchy(stdscr, hierarchy_output):
+    """Display the hierarchy in a scrollable window."""
+    # Get screen dimensions
+    h, w = stdscr.getmaxyx()
+    
+    # Clear screen
+    stdscr.clear()
+    
+    # Draw title
+    title = "Site Hierarchy"
+    try:
+        # Draw title bar with background
+        stdscr.attron(get_color(ColorPair.HEADER, bold=True))
+        for x in range(w):
+            stdscr.addstr(0, x, " ")
+        stdscr.addstr(0, (w - len(title)) // 2, title)
+        stdscr.attroff(get_color(ColorPair.HEADER, bold=True))
+    except:
+        # Fallback if styling fails
+        stdscr.addstr(0, (w - len(title)) // 2, title, curses.A_BOLD)
+    
+    # Split output into lines
+    lines = hierarchy_output.split('\n')
+    
+    # Initialize scroll position
+    scroll_pos = 0
+    max_scroll = max(0, len(lines) - (h - 3))  # Leave room for header and footer
+    
+    while True:
+        # Clear content area
+        for y in range(1, h-1):
+            stdscr.addstr(y, 0, " " * w)
+        
+        # Display visible lines
+        for y, line in enumerate(lines[scroll_pos:scroll_pos + h - 3], 1):
+            if y >= h - 1:
+                break
+            try:
+                # Truncate line if too long
+                if len(line) > w - 2:
+                    line = line[:w-5] + "..."
+                stdscr.addstr(y, 1, line)
+            except:
+                continue
+        
+        # Show navigation help
+        help_text = "↑/↓: Scroll | PgUp/PgDn: Page | q: Quit"
+        stdscr.addstr(h-1, 2, help_text)
+        
+        # Show scroll position
+        if max_scroll > 0:
+            scroll_percent = (scroll_pos / max_scroll) * 100
+            scroll_info = f"Scroll: {scroll_percent:.1f}%"
+            stdscr.addstr(h-1, w - len(scroll_info) - 2, scroll_info)
+        
+        stdscr.refresh()
+        
+        # Handle input
+        key = stdscr.getch()
+        
+        if key == curses.KEY_UP and scroll_pos > 0:
+            scroll_pos -= 1
+        elif key == curses.KEY_DOWN and scroll_pos < max_scroll:
+            scroll_pos += 1
+        elif key == curses.KEY_PPAGE:  # Page Up
+            scroll_pos = max(0, scroll_pos - (h - 3))
+        elif key == curses.KEY_NPAGE:  # Page Down
+            scroll_pos = min(max_scroll, scroll_pos + (h - 3))
+        elif key == ord('q'):
+            break
 
 
 def main():
@@ -148,42 +233,42 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
         logging.getLogger("urllib3.connectionpool").setLevel(logging.DEBUG)
 
-    # Load configuration
-    config = load_config(args.config)
-    
-    # Extract nested configuration values
-    server_config = config.get("server", {})
-    hostname = server_config.get("host")
-    verify = server_config.get("verify_ssl", False)
-    
-    auth_config = config.get("auth", {})
-    username = auth_config.get("username")
-    password = auth_config.get("password")
-    
-    if not all([hostname, username, password]):
-        print("Missing required configuration: hostname, username, or password")
-        sys.exit(1)
-    
-    # Initialize DNAC client
-    dnac = Dnac(hostname)
-    
-    # Set SSL verification
-    dnac.verify = verify
-
     try:
+        # Load configuration
+        config = load_config(args.config)
+        
+        # Extract nested configuration values
+        server_config = config.get("server", {})
+        hostname = server_config.get("host")
+        verify = server_config.get("verify_ssl", False)
+        
+        auth_config = config.get("auth", {})
+        username = auth_config.get("username")
+        password = auth_config.get("password")
+        
+        if not all([hostname, username, password]):
+            print("Missing required configuration: hostname, username, or password")
+            sys.exit(1)
+        
+        # Initialize DNAC client
+        dnac = Dnac(hostname)
+        
+        # Set SSL verification
+        dnac.verify = verify
+
         # Login and get token
         dnac.login(username, password)
-        print("Successfully authenticated")
         
-        # Get and display site hierarchy with the improved formatting
-        print("\nSite Hierarchy:")
-        print("=" * 80)
-        
-        # Use our new detailed hierarchy function
+        # Get hierarchy data
         hierarchy_output = get_hierarchy_with_details(dnac, args)
-        print(hierarchy_output)
-            
-        print("=" * 80)
+        
+        # Check if we're running in a terminal that supports curses
+        if os.isatty(sys.stdout.fileno()):
+            # Display in curses interface
+            curses.wrapper(lambda stdscr: display_hierarchy(stdscr, hierarchy_output))
+        else:
+            # Print output directly if not in a terminal
+            print(hierarchy_output)
 
     except Exception as e:
         print(f"Error: {e}")

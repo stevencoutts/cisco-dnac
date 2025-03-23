@@ -84,112 +84,113 @@ def get_text_input(window, prompt: str, y: int, x: int, max_length: int = 30,
     
     return result
 
-def show_dropdown_menu(window, title: str, options: List[str], 
-                      y: int, x: int, width: int = 40) -> int:
-    """
-    Display a dropdown menu and return the selected option index.
+def show_dropdown_menu(window, options, y, x, max_height=10):
+    """Display a dropdown menu with options and return the selected index."""
+    # Save original cursor state
+    try:
+        curses.curs_set(0)
+    except:
+        pass
     
-    Args:
-        window: The curses window
-        title: Title for the dropdown
-        options: List of option strings
-        y: Y position for the dropdown
-        x: X position for the dropdown
-        width: Width of the dropdown
-        
-    Returns:
-        Index of the selected option, or -1 if cancelled
-    """
-    parent_h, parent_w = window.getmaxyx()
+    # Get window dimensions
+    h, w = window.getmaxyx()
     
-    # Determine height (constrained by parent window)
-    max_visible_items = min(10, len(options))
-    height = max_visible_items + 4  # Add space for title, border, and instruction
+    # Convert all options to strings to prevent len() errors
+    string_options = [str(option) for option in options]
     
-    # Adjust position if dropdown would go off-screen
-    if y + height > parent_h - 1:
-        y = max(0, parent_h - height - 1)
+    # Find the longest option to determine dropdown width
+    longest_option = max(string_options, key=len) if string_options else ""
+    dropdown_width = min(len(longest_option) + 4, w - x - 2)  # Add padding, respect window width
     
-    if x + width > parent_w - 1:
-        x = max(0, parent_w - width - 1)
+    # Calculate visible options based on max_height and window height
+    visible_options = min(max_height, len(string_options), h - y - 2)
     
-    # Create dropdown window
-    dropdown = curses.newwin(height, width, y, x)
-    dropdown.keypad(True)
-    
-    # Apply the navy blue background
-    dropdown.bkgd(' ', get_color(ColorPair.NORMAL))
-    
-    # Initial state
+    # Initialize selection
     current_idx = 0
-    start_idx = 0
+    first_visible_idx = 0
     
-    # Dropdown loop
+    # Create dropdown panel
+    dropdown_box = window.derwin(visible_options + 2, dropdown_width, y, x)
+    
+    # Main loop
     while True:
-        dropdown.clear()
-        dropdown.box()
+        # Draw dropdown box
+        dropdown_box.box()
         
-        # Draw title bar
-        dropdown.attron(get_color(ColorPair.HEADER, bold=True))
-        for i in range(1, width-1):
-            dropdown.addstr(0, i, " ")
-        dropdown.addstr(0, (width - len(title)) // 2, title)
-        dropdown.attroff(get_color(ColorPair.HEADER, bold=True))
+        # Calculate last visible index
+        last_visible_idx = first_visible_idx + visible_options
         
-        # Calculate visible range
-        max_display = height - 2  # Subtract border
-        can_scroll = len(options) > max_display
-        
-        if can_scroll:
-            # Keep selected item in view
-            if current_idx < start_idx:
-                start_idx = current_idx
-            elif current_idx >= start_idx + max_display:
-                start_idx = current_idx - max_display + 1
-                
-            # Draw up/down indicators if scrollable
-            if start_idx > 0:
-                dropdown.addstr(1, width-3, "↑")
-            if start_idx + max_display < len(options):
-                dropdown.addstr(height-2, width-3, "↓")
-        
-        # Draw options
-        visible_options = options[start_idx:start_idx+max_display]
-        for i, option in enumerate(visible_options):
-            # Truncate option text if needed
-            display_text = option
-            if len(display_text) > width - 6:
-                display_text = display_text[:width-9] + "..."
-                
-            # Highlight current selection
-            y_pos = i + 1
-            x_pos = 2
+        # Display visible options
+        for i in range(first_visible_idx, min(last_visible_idx, len(string_options))):
+            option_idx = i - first_visible_idx  # Relative position in the visible list
+            option_text = string_options[i]
             
-            is_selected = i + start_idx == current_idx
-            if is_selected:
-                dropdown.attron(get_color(ColorPair.SELECTED))
-                dropdown.addstr(y_pos, x_pos, " " + display_text + " " * (width - len(display_text) - 4))
-                dropdown.attroff(get_color(ColorPair.SELECTED))
+            # Truncate if too long
+            if len(option_text) > dropdown_width - 4:
+                option_text = option_text[:dropdown_width - 7] + "..."
+            
+            # Highlight if selected
+            if i == current_idx:
+                attr = curses.A_REVERSE
             else:
-                dropdown.addstr(y_pos, x_pos, " " + display_text)
+                attr = curses.A_NORMAL
+            
+            # Clear line
+            try:
+                dropdown_box.addstr(option_idx + 1, 1, " " * (dropdown_width - 2))
+                # Draw option
+                dropdown_box.addstr(option_idx + 1, 2, option_text, attr)
+            except curses.error:
+                pass  # Ignore errors if we can't draw
         
-        dropdown.refresh()
+        # Show scroll indicators if needed - using ASCII instead of Unicode
+        try:
+            if first_visible_idx > 0:
+                dropdown_box.addstr(0, dropdown_width // 2, "^")
+            if last_visible_idx < len(string_options):
+                dropdown_box.addstr(visible_options + 1, dropdown_width // 2, "v")
+        except curses.error:
+            pass  # Ignore errors for indicators
         
-        # Handle key presses
-        key = dropdown.getch()
+        # Refresh display
+        dropdown_box.refresh()
+        
+        # Get input
+        key = window.getch()
         
         if key == curses.KEY_UP:
+            # Move selection up
             if current_idx > 0:
                 current_idx -= 1
+                # Scroll if needed
+                if current_idx < first_visible_idx:
+                    first_visible_idx = current_idx
         elif key == curses.KEY_DOWN:
-            if current_idx < len(options) - 1:
+            # Move selection down
+            if current_idx < len(string_options) - 1:
                 current_idx += 1
-        elif key == ord('\n'):  # Enter key
+                # Scroll if needed
+                if current_idx >= last_visible_idx:
+                    first_visible_idx = current_idx - visible_options + 1
+        elif key == curses.KEY_PPAGE:  # Page Up
+            # Move page up
+            current_idx = max(0, current_idx - visible_options)
+            first_visible_idx = max(0, first_visible_idx - visible_options)
+        elif key == curses.KEY_NPAGE:  # Page Down
+            # Move page down
+            current_idx = min(len(string_options) - 1, current_idx + visible_options)
+            first_visible_idx = min(len(string_options) - visible_options, first_visible_idx + visible_options)
+            if first_visible_idx < 0:
+                first_visible_idx = 0
+        elif key == 10 or key == 13:  # Enter key
+            # Return selected index
             return current_idx
-        elif key in (curses.KEY_BACKSPACE, 27, ord('\b'), 8):  # Backspace, Escape
-            return -1
+        elif key == 27 or key == ord('q'):  # Escape or q
+            # Cancel selection
+            return None
     
-    return -1
+    # Clean up
+    del dropdown_box
 
 def show_form(window, title: str, fields: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -334,7 +335,6 @@ def show_form(window, title: str, fields: List[Dict[str, Any]]) -> Dict[str, Any
                 if "options" in field and field["options"]:
                     selected = show_dropdown_menu(
                         form_win,
-                        field["label"],
                         field["options"],
                         current_field * 2 + 3,  # Position below the field
                         4,
