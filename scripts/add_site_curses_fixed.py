@@ -128,10 +128,6 @@ def get_parent_sites(dnac):
         # Available parent sites (always include Global first)
         available_sites = [{"name": "Global", "id": "global", "type": "area"}]
         
-        # If Europe/UK exists, mark it specifically for debugging
-        uk_area_found = False
-        uk_site_id = None
-        
         if 'response' in data:
             sites = data['response']
             if not isinstance(sites, list):
@@ -153,16 +149,6 @@ def get_parent_sites(dnac):
                         if isinstance(info, dict):
                             if info.get('nameSpace') == 'Location' and info.get('attributes', {}).get('type'):
                                 site_type = info.get('attributes', {}).get('type')
-                            
-                    # Special check for UK site using hierarchical paths
-                    if "UK" in site_name:
-                        logging.info(f"Found UK site: {site_name}, id={site_id}, type={site_type}")
-                        
-                        # Special handling for UK with hierarchical path
-                        if site_name == "Global/Europe/UK" or site_name.endswith("/UK") or site_name == "UK":
-                            logging.info(f"*** FOUND UK AREA: {site_name}, id={site_id} ***")
-                            uk_area_found = True
-                            uk_site_id = site_id
                     
                     # Add site to available parents
                     available_sites.append({
@@ -172,14 +158,6 @@ def get_parent_sites(dnac):
                     })
                 except Exception as e:
                     logging.warning(f"Error processing site {site}: {str(e)}")
-        
-        # If we found a UK area, make sure it's properly labeled
-        if uk_area_found and uk_site_id:
-            for site in available_sites:
-                if site.get('id') == uk_site_id:
-                    site['name'] = "UK"  # Simplify display name
-                    site['type'] = "Area"  # Force type to Area
-                    logging.info(f"Updated UK area display: {site}")
         
         logging.debug(f"Available parent sites: {available_sites}")
         return available_sites
@@ -192,146 +170,76 @@ def create_site_data(site_type, site_name, parent_site, parent_id):
     """Create site data structure for API request"""
     logging.info(f"Creating {site_type} '{site_name}' under {parent_site} (ID: {parent_id})")
     
-    # Special case for buildings under UK using hierarchical path
-    if site_type == "building" and parent_site == "UK" and parent_id and parent_id.lower() != "global":
-        logging.info(f"Creating building under UK with hierarchical path format")
-        
+    # Create the payload in the format expected by the API
+    if site_type == "area":
         site_data = {
-            "type": "building",
+            "type": site_type,
             "site": {
-                "building": {
+                "area": {
                     "name": site_name,
-                    "parentId": parent_id,
-                    "address": "1 Main Street",
-                    "latitude": 51.50853,  # Numeric format
-                    "longitude": -0.12574, # Numeric format
-                    "country": "United Kingdom"
+                    "parentName": parent_site if parent_site else "Global"
                 }
             }
         }
-        
-        logging.debug(f"Using UK hierarchical path building data: {json.dumps(site_data, indent=2)}")
-        return site_data
-    else:
-        # Log parent information for debugging
-        logging.debug(f"Creating {site_type} with parent site: {parent_site}, parent ID: {parent_id}")
-        
-        # Create the payload in the format expected by the API
-        if site_type == "area":
-            site_data = {
-                "type": site_type,
-                "site": {
-                    "area": {
-                        "name": site_name,
-                        "parentName": parent_site if parent_site else "Global"
-                    }
-                }
-            }
-            # Add parentId if available (more reliable than parentName)
-            if parent_id and parent_id != "global":
-                site_data["site"]["area"]["parentId"] = parent_id
+        # Add parentId if available (more reliable than parentName)
+        if parent_id and parent_id != "global":
+            site_data["site"]["area"]["parentId"] = parent_id
             
-        elif site_type == "building":
-            # For buildings, we need special handling for various parent sites
-            
-            # Special case for UK specifically
-            if parent_site == "UK" and parent_id and parent_id.lower() != "global":
-                logging.info(f"Creating building under UK with ID: {parent_id}")
-                
-                # Ultra simplified UK-specific building data - minimal required fields
-                site_data = {
-                    "type": "building",
-                    "site": {
-                        "building": {
-                            "name": site_name,
-                            "parentId": parent_id,
-                            "address": "1 Main Street",
-                            "latitude": 51.50853,  # Numeric format, not string
-                            "longitude": -0.12574, # Numeric format, not string
-                            "country": "United Kingdom"
-                        }
-                    }
-                }
-                
-                logging.debug(f"Using minimalist UK building data: {json.dumps(site_data, indent=2)}")
-            # For buildings under other non-Global parents
-            elif parent_site != "Global" and parent_id and parent_id.lower() != "global":
-                logging.info(f"Creating building under non-Global parent: {parent_site} with ID: {parent_id}")
-                
-                # Simplified building data for non-Global parents
-                site_data = {
-                    "type": site_type,
-                    "site": {
-                        "building": {
-                            "name": site_name,
-                            "parentId": parent_id,  # Use only parentId for non-Global parents
-                            "parentName": parent_site,  # Also include parentName
-                            "address": "1 Main Street, London",
-                            "latitude": "51.50853",
-                            "longitude": "-0.12574",
-                            "country": "United Kingdom"
-                        }
-                    }
-                }
-                
-                # Non-Global specific attributes for better compatibility
-                site_data["site"]["building"]["city"] = "London"
-                logging.debug(f"Using non-Global building data format: {json.dumps(site_data, indent=2)}")
-            else:
-                # Standard building creation under Global
-                building_data = {
-                    "name": site_name,
-                    "address": "1 Main Street",
-                    "latitude": "51.50853",  # London coordinates as strings
-                    "longitude": "-0.12574",
-                    "country": "United Kingdom"  # Required field
-                }
-                
-                # Add optional fields only if they have values
-                building_data["city"] = "London"
-                
-                # Always add parentName for consistency
-                building_data["parentName"] = parent_site if parent_site else "Global"
-                
-                # Add parentId only if valid (not empty and not "global")
-                if parent_id and parent_id.lower() != "global":
-                    logging.debug(f"Adding parentId '{parent_id}' to building data")
-                    building_data["parentId"] = parent_id
-                else:
-                    logging.debug(f"Using only parentName '{parent_site}' for building (no valid parentId)")
-                
-                # Create the site data structure
-                site_data = {
-                    "type": site_type,
-                    "site": {
-                        "building": building_data
-                    }
-                }
-                
-        elif site_type == "floor":
-            site_data = {
-                "type": site_type,
-                "site": {
-                    "floor": {
-                        "name": site_name,
-                        "parentName": parent_site if parent_site else "Global",
-                        "rfModel": "Cubes And Walled Offices",
-                        "width": "100",
-                        "length": "100",
-                        "height": "10"
-                    }
-                }
-            }
-            # Add parentId if available (more reliable than parentName)
-            if parent_id and parent_id != "global":
-                site_data["site"]["floor"]["parentId"] = parent_id
+    elif site_type == "building":
+        # For buildings, we need special handling for various parent sites
+        building_data = {
+            "name": site_name,
+            "address": "1 Main Street",
+            "latitude": "51.50853",  # London coordinates as strings
+            "longitude": "-0.12574",
+            "country": "United Kingdom"  # Required field
+        }
+        
+        # Add optional fields only if they have values
+        building_data["city"] = "London"
+        
+        # Always add parentName for consistency
+        building_data["parentName"] = parent_site if parent_site else "Global"
+        
+        # Add parentId only if valid (not empty and not "global")
+        if parent_id and parent_id.lower() != "global":
+            logging.debug(f"Adding parentId '{parent_id}' to building data")
+            building_data["parentId"] = parent_id
         else:
-            site_data = {}
+            logging.debug(f"Using only parentName '{parent_site}' for building (no valid parentId)")
         
-        # Log the final site data for debugging
-        logging.debug(f"Final site data: {json.dumps(site_data, indent=2)}")
+        # Create the site data structure
+        site_data = {
+            "type": site_type,
+            "site": {
+                "building": building_data
+            }
+        }
         
-        return site_data
+    elif site_type == "floor":
+        site_data = {
+            "type": site_type,
+            "site": {
+                "floor": {
+                    "name": site_name,
+                    "parentName": parent_site if parent_site else "Global",
+                    "rfModel": "Cubes And Walled Offices",
+                    "width": "100",
+                    "length": "100",
+                    "height": "10"
+                }
+            }
+        }
+        # Add parentId if available (more reliable than parentName)
+        if parent_id and parent_id != "global":
+            site_data["site"]["floor"]["parentId"] = parent_id
+    else:
+        site_data = {}
+    
+    # Log the final site data for debugging
+    logging.debug(f"Final site data: {json.dumps(site_data, indent=2)}")
+    
+    return site_data
 
 
 def get_site_name(stdscr):
@@ -1348,7 +1256,6 @@ def add_site_ui(stdscr, dnac):
                                                 if isinstance(site, dict) and site.get('name') == site_name:
                                                     logging.info(f"Site '{site_name}' found in name query response list!")
                                                     verify_found = True
-                                                    success = True
                                                 break
                                         elif isinstance(response_obj, dict):
                                             # If it's a dict, check direct match or sites list
@@ -1559,6 +1466,9 @@ def main():
     parser = argparse.ArgumentParser(description='Add sites to DNA Center')
     parser.add_argument('-c', '--config', help='Path to DNA Center config file')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
+    parser.add_argument('-t', '--type', choices=['area', 'building', 'floor'], required=True, help='Type of site to create')
+    parser.add_argument('-n', '--name', required=True, help='Name of the site to create')
+    parser.add_argument('-p', '--parent', help='Parent site name (default: Global)')
     
     args = parser.parse_args()
     
@@ -1598,13 +1508,36 @@ def main():
             print(f"Authentication failed: {str(e)}")
             return 1
         
-        # Print success message
-        print("DNAC import and authentication successful")
-        print("The full functionality of this script is being rebuilt. Stay tuned for updates.")
+        # Get parent site ID if specified
+        parent_id = "global"
+        if args.parent:
+            parent_sites = get_parent_sites(dnac)
+            for site in parent_sites:
+                if site["name"] == args.parent:
+                    parent_id = site["id"]
+                    break
+        
+        # Create site data
+        site_data = create_site_data(args.type, args.name, args.parent, parent_id)
+        
+        # Create the site
+        print(f"Creating {args.type} '{args.name}' under '{args.parent or 'Global'}'...")
+        response = create_site(dnac, site_data)
+        
+        if response.status_code in (200, 201, 202):
+            print("Site creation request successful. Verifying...")
+            
+            # Verify site creation
+            if verify_site_creation(dnac, args.name, args.type, parent_id):
+                print(f"Successfully created {args.type} '{args.name}'")
+            else:
+                print(f"Warning: Site creation may have succeeded but verification failed. Check the logs for details.")
+        else:
+            print(f"Failed to create site. Status code: {response.status_code}")
+            print(f"Response: {response.text}")
         
     except Exception as e:
         logging.error(f"Error: {str(e)}")
-        traceback.print_exc()
         print(f"Error: {str(e)}")
         return 1
     
