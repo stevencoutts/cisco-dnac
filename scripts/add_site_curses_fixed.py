@@ -54,14 +54,9 @@ except ImportError:
                 self.token = response.json()["Token"]
                 return self.token
 
-# Import UI components
-try:
-    from dnac.ui.colors import ColorPair, get_color, initialize_colors
-    from dnac.ui.components import draw_standard_header_footer
+from dnac.ui.colors import ColorPair, get_color, initialize_colors
+from dnac.ui.components import draw_standard_header_footer
 from dnac.ui.forms import show_form, show_dropdown_menu
-except ImportError:
-    print("Warning: UI components not found. This script requires the dnac UI components.")
-    sys.exit(1)
 
 # Configure logging
 logging.basicConfig(
@@ -170,7 +165,7 @@ def get_parent_sites(dnac):
                             uk_site_id = site_id
                     
                     # Add site to available parents
-                        available_sites.append({
+                    available_sites.append({
                         "name": site_name,
                         "id": site_id,
                         "type": site_type
@@ -221,22 +216,22 @@ def create_site_data(site_type, site_name, parent_site, parent_id):
         # Log parent information for debugging
         logging.debug(f"Creating {site_type} with parent site: {parent_site}, parent ID: {parent_id}")
         
-    # Create the payload in the format expected by the API
-    if site_type == "area":
-        site_data = {
-            "type": site_type,
-            "site": {
-                "area": {
-                    "name": site_name,
-                    "parentName": parent_site if parent_site else "Global"
+        # Create the payload in the format expected by the API
+        if site_type == "area":
+            site_data = {
+                "type": site_type,
+                "site": {
+                    "area": {
+                        "name": site_name,
+                        "parentName": parent_site if parent_site else "Global"
+                    }
                 }
             }
-        }
-        # Add parentId if available (more reliable than parentName)
-        if parent_id and parent_id != "global":
-            site_data["site"]["area"]["parentId"] = parent_id
+            # Add parentId if available (more reliable than parentName)
+            if parent_id and parent_id != "global":
+                site_data["site"]["area"]["parentId"] = parent_id
             
-    elif site_type == "building":
+        elif site_type == "building":
             # For buildings, we need special handling for various parent sites
             
             # Special case for UK specifically
@@ -264,11 +259,11 @@ def create_site_data(site_type, site_name, parent_site, parent_id):
                 logging.info(f"Creating building under non-Global parent: {parent_site} with ID: {parent_id}")
                 
                 # Simplified building data for non-Global parents
-        site_data = {
-            "type": site_type,
-            "site": {
-                "building": {
-                    "name": site_name,
+                site_data = {
+                    "type": site_type,
+                    "site": {
+                        "building": {
+                            "name": site_name,
                             "parentId": parent_id,  # Use only parentId for non-Global parents
                             "parentName": parent_site,  # Also include parentName
                             "address": "1 Main Street, London",
@@ -312,31 +307,31 @@ def create_site_data(site_type, site_name, parent_site, parent_id):
                         "building": building_data
                     }
                 }
-            
-    elif site_type == "floor":
-        site_data = {
-            "type": site_type,
-            "site": {
-                "floor": {
-                    "name": site_name,
-                    "parentName": parent_site if parent_site else "Global",
+                
+        elif site_type == "floor":
+            site_data = {
+                "type": site_type,
+                "site": {
+                    "floor": {
+                        "name": site_name,
+                        "parentName": parent_site if parent_site else "Global",
                         "rfModel": "Cubes And Walled Offices",
                         "width": "100",
                         "length": "100",
                         "height": "10"
+                    }
                 }
             }
-        }
-        # Add parentId if available (more reliable than parentName)
-        if parent_id and parent_id != "global":
-            site_data["site"]["floor"]["parentId"] = parent_id
-    else:
-        site_data = {}
-    
+            # Add parentId if available (more reliable than parentName)
+            if parent_id and parent_id != "global":
+                site_data["site"]["floor"]["parentId"] = parent_id
+        else:
+            site_data = {}
+        
         # Log the final site data for debugging
         logging.debug(f"Final site data: {json.dumps(site_data, indent=2)}")
         
-    return site_data
+        return site_data
 
 
 def get_site_name(stdscr):
@@ -757,23 +752,23 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
                                     
                                     if direct_response and direct_response.status_code in (200, 201, 202):
                                         logging.info("DIRECT UK BUILDING CREATION SUCCESS")
-                                                success = True
+                                        success = True
                         else:
                             # Proceed with verification rather than treating as success
                             
                             # Special logging for UK buildings
                             if parent_site == "UK" and site_type == "building":
                                 logging.info(f"Verifying building under UK (attempt {attempt+1})")
-                                        
-                                        if verify_response.status_code == 200:
+                            
+                            if verify_response.status_code == 200:
                                 try:
-                                            verify_data = verify_response.json()
+                                    verify_data = verify_response.json()
                                     # Log UK building verification data
                                     if parent_site == "UK" and site_type == "building":
                                         logging.debug(f"UK building verification data: {json.dumps(verify_data, indent=2)}")
                                     
-                                            if 'response' in verify_data and isinstance(verify_data['response'], list):
-                                                for site in verify_data['response']:
+                                    if 'response' in verify_data and isinstance(verify_data['response'], list):
+                                        for site in verify_data['response']:
                                             # For buildings, check the hierarchy too
                                             if site_type == "building":
                                                 site_hierarchy = site.get('siteNameHierarchy', '')
@@ -790,7 +785,6 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
                                                         logging.info(f"UK Building '{site_name}' found in hierarchy containing UK!")
                                                         verify_found = True
                                                         success = True
-                                                        break
                                                     
                                                     # Standard checks for all buildings
                                                     # 1. Exact name match
@@ -798,7 +792,6 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
                                                         logging.info(f"Building '{site_name}' found by exact name match!")
                                                         verify_found = True
                                                         success = True
-                                                        break
                                                     
                                                     # 2. Look for building in hierarchy path with parent
                                                     if site_hierarchy:
@@ -832,11 +825,11 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
                                                     if parent_site != "Global" and site_name in site_hierarchy:
                                                         logging.info(f"Building '{site_name}' found in non-Global hierarchy: {site_hierarchy}")
                                                         verify_found = True
-                                            success = True
-                                            break
+                                                        success = True
+                                                        break
                                 except ValueError:
                                     logging.warning("Failed to parse verification response as JSON")
-                                    except Exception as e:
+                        except Exception as e:
                             logging.warning(f"Error in verification method 1: {str(e)}")
                                 
                                 # Method 2: Try getting site by name (useful for buildings/floors)
@@ -854,14 +847,14 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
                                         else:
                                             verify_url = f"{base_url}/dna/intent/api/v1/site?name={encoded_name}"
                                             
-                                    verify_response = dnac.session.get(
-                                        verify_url, 
-                                        headers={"x-auth-token": dnac.token},
-                                        timeout=10
-                                    )
-                                    
-                                    if verify_response.status_code == 200:
-                                        verify_data = verify_response.json()
+                                        verify_response = dnac.session.get(
+                                            verify_url, 
+                                            headers={"x-auth-token": dnac.token},
+                                            timeout=10
+                                        )
+                                        
+                                        if verify_response.status_code == 200:
+                                            verify_data = verify_response.json()
                                             # Special logging for UK buildings
                                             if parent_site == "UK" and site_type == "building":
                                                 logging.debug(f"UK name search response: {json.dumps(verify_data, indent=2)}")
@@ -885,44 +878,44 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
                                                         success = True
                                                     elif 'sites' in response_obj and isinstance(response_obj['sites'], list):
                                                         for site in response_obj['sites']:
-                                                if site.get('name') == site_name:
+                                                            if site.get('name') == site_name:
                                                                 logging.info(f"Site '{site_name}' found in sites list!")
                                                                 verify_found = True
-                                                    success = True
+                                                                success = True
                                                 # Generic check for non-empty response
                                                 elif response_obj:
                                                     logging.info(f"Site likely created - found non-empty response for '{site_name}'")
                                                     verify_found = True
-                            success = True
+                                                    success = True
                                     except Exception as e:
                                         logging.warning(f"Error in verification method 2: {str(e)}")
                                         # Log full error details with traceback
                                         import traceback
                                         logging.debug(f"Verification error details: {traceback.format_exc()}")
-                     
+                                
                                 # Method 3: Try getting the site by parent (useful for hierarchy)
                                 if not verify_found and parent_id and parent_id != "global":
-                    try:
+                                    try:
                                         verify_url = f"{base_url}/dna/intent/api/v1/site/{parent_id}"
-                        verify_response = dnac.session.get(
-                            verify_url, 
-                            headers={"x-auth-token": dnac.token},
-                            timeout=10
-                        )
-                        
-                        if verify_response.status_code == 200:
-                            verify_data = verify_response.json()
+                                        verify_response = dnac.session.get(
+                                            verify_url, 
+                                            headers={"x-auth-token": dnac.token},
+                                            timeout=10
+                                        )
+                                        
+                                        if verify_response.status_code == 200:
+                                            verify_data = verify_response.json()
                                             # Look for the site name in the response
                                             response_text = json.dumps(verify_data)
                                             if site_name in response_text:
                                                 logging.info(f"Site '{site_name}' found in parent data after {attempt+1} verification attempts!")
                                                 verify_found = True
-                                        success = True
+                                                success = True
                                     except Exception as e:
                                         logging.warning(f"Error in verification method 3: {str(e)}")
                                 
                                 if verify_found:
-                                        break
+                                    break
                                     
                                 # If not found and not the last attempt, wait and try again
                                 if attempt < max_verification_attempts - 1:
@@ -938,9 +931,9 @@ def create_site_screen(stdscr, site_type, dnac, config, logger):
                             # Wait longer for the final building attempt
                             time.sleep(5)
                             success = True
-                                else:
+                        else:
                             raise Exception("Site creation could not be verified within the timeout period")
-                    
+                        
                     # Display result to user
                     if success:
                         show_message(stdscr, f"{site_type.capitalize()} '{site_name}' created successfully!", curses.A_NORMAL)
@@ -1008,18 +1001,18 @@ def add_site_ui(stdscr, dnac):
                 logging.info("SPECIAL CASE: UK Building - ULTRA SIMPLE IMPLEMENTATION")
                 
                 # Show creating status
-        stdscr.clear()
-        try:
+                stdscr.clear()
+                try:
                     content_start = draw_standard_header_footer(
                         stdscr, 
                         title="Cisco Catalyst Centre",
                         subtitle="UK Building Creator"
                     )
                     stdscr.addstr(content_start + 1, 2, "Creating building under UK...")
-            stdscr.refresh()
-        except curses.error:
-            pass
-        
+                    stdscr.refresh()
+                except curses.error:
+                    pass
+                
                 # Bare minimum approach
                 try:
                     # Minimal payload with only required fields
@@ -1071,8 +1064,8 @@ def add_site_ui(stdscr, dnac):
                         logging.info("UK BUILDING RESPONSE IS NOT JSON")
                     
                     # Show result to user regardless of success/failure
-            stdscr.clear()
-            try:
+                    stdscr.clear()
+                    try:
                         content_start = draw_standard_header_footer(
                             stdscr, 
                             title="Cisco Catalyst Centre",
@@ -1091,10 +1084,10 @@ def add_site_ui(stdscr, dnac):
                         stdscr.addstr(content_start + 5, 2, "Full details have been logged to dnac_add_site.log")
                         stdscr.addstr(content_start + 6, 2, "Please check the log file to see what happened")
                         stdscr.addstr(content_start + 8, 2, "Press any key to continue...")
-                stdscr.refresh()
-            except curses.error:
-                pass
-            
+                        stdscr.refresh()
+                    except curses.error:
+                        pass
+                    
                     stdscr.getch()
                     # After creating UK building, go back to site type selection
                     continue
@@ -1104,13 +1097,13 @@ def add_site_ui(stdscr, dnac):
                     import traceback
                     logging.error(f"UK BUILDING TRACEBACK: {traceback.format_exc()}")
                     # Continue to standard approach as fallback
-        
-        # Create site data
-        site_data = create_site_data(site_type, site_name, parent_site, parent_id)
-        
+            
+            # Create site data
+            site_data = create_site_data(site_type, site_name, parent_site, parent_id)
+            
             # Confirm creation
-        stdscr.clear()
-        try:
+            stdscr.clear()
+            try:
                 content_start = draw_standard_header_footer(
                     stdscr, 
                     title="Cisco Catalyst Centre",
@@ -1129,90 +1122,90 @@ def add_site_ui(stdscr, dnac):
                     stdscr.addstr(content_start + 5, 4, f"City: {building_info['city']}")
                     stdscr.addstr(content_start + 6, 4, f"Country: {building_info['country']}")
                 
-            stdscr.refresh()
-        except curses.error:
-            pass
-        
-        if stdscr.getch() != ord('y'):
+                stdscr.refresh()
+            except curses.error:
+                pass
+            
+            if stdscr.getch() != ord('y'):
                 continue
-        
-        # Create site
-        stdscr.clear()
-        try:
-            stdscr.addstr(0, 2, "Creating site...")
-            stdscr.refresh()
             
-            # Show a spinner while creating site
-            spinner_chars = ['|', '/', '-', '\\']
-            spinner_idx = 0
-            
+            # Create site
+            stdscr.clear()
+            try:
+                stdscr.addstr(0, 2, "Creating site...")
+                stdscr.refresh()
+                
+                # Show a spinner while creating site
+                spinner_chars = ['|', '/', '-', '\\']
+                spinner_idx = 0
+                
                 def update_spinner(message=None):
-                nonlocal spinner_idx
-                try:
-                    # Clear previous spinner
+                    nonlocal spinner_idx
+                    try:
+                        # Clear previous spinner
                         stdscr.addstr(1, 2, " " * 60)  # Clear more space for messages
-                    # Show updated spinner with status
+                        # Show updated spinner with status
                         status_text = f"Please wait {spinner_chars[spinner_idx]} "
                         if message:
                             status_text += message
                         stdscr.addstr(1, 2, status_text)
-                    spinner_idx = (spinner_idx + 1) % len(spinner_chars)
-                    stdscr.refresh()
-                except curses.error:
-                    pass
+                        spinner_idx = (spinner_idx + 1) % len(spinner_chars)
+                        stdscr.refresh()
+                    except curses.error:
+                        pass
+                
+                # Setup a timer to update the spinner periodically
+                last_update = 0
+                update_interval = 0.2  # seconds
+            except curses.error:
+                pass
             
-            # Setup a timer to update the spinner periodically
-            last_update = 0
-            update_interval = 0.2  # seconds
-        except curses.error:
-            pass
-        
-        try:
-            # Log for debugging
-            logging.debug(f"Creating site of type: {site_type}")
-            logging.debug(f"Site name: {site_name}")
-            logging.debug(f"Parent site: {parent_site}")
-            logging.debug(f"Sending site data: {json.dumps(site_data, indent=2)}")
-            
-            # Create the site using direct API call to avoid path construction issues
-            direct_url = "dna/intent/api/v1/site"
-            
-            # Ensure hostname doesn't have trailing slash and doesn't duplicate protocol
-            base_url = dnac.host.rstrip('/')
-            full_url = f"{base_url}/{direct_url}"
-            
-            headers = {
-                "x-auth-token": dnac.token,
-                "Content-Type": "application/json"
-            }
-            
-            # Convert site_data to JSON string
-            json_data = json.dumps(site_data)
-            logging.debug(f"Full URL: {full_url}")
-            logging.debug(f"Headers: {headers}")
-            logging.debug(f"JSON data: {json_data}")
-            
-            # Make direct request
-            response = dnac.session.post(
-                full_url,
-                headers=headers,
-                data=json_data
-            )
-            logging.debug(f"Direct response status: {response.status_code}")
-            logging.debug(f"Direct response text: {response.text}")
-            
-            # Parse response
+            try:
+                # Log for debugging
+                logging.debug(f"Creating site of type: {site_type}")
+                logging.debug(f"Site name: {site_name}")
+                logging.debug(f"Parent site: {parent_site}")
+                logging.debug(f"Sending site data: {json.dumps(site_data, indent=2)}")
+                
+                # Create the site using direct API call to avoid path construction issues
+                direct_url = "dna/intent/api/v1/site"
+                
+                # Ensure hostname doesn't have trailing slash and doesn't duplicate protocol
+                base_url = dnac.host.rstrip('/')
+                full_url = f"{base_url}/{direct_url}"
+                
+                headers = {
+                    "x-auth-token": dnac.token,
+                    "Content-Type": "application/json"
+                }
+                
+                # Convert site_data to JSON string
+                json_data = json.dumps(site_data)
+                logging.debug(f"Full URL: {full_url}")
+                logging.debug(f"Headers: {headers}")
+                logging.debug(f"JSON data: {json_data}")
+                
+                # Make direct request
+                response = dnac.session.post(
+                    full_url,
+                    headers=headers,
+                    data=json_data
+                )
+                logging.debug(f"Direct response status: {response.status_code}")
+                logging.debug(f"Direct response text: {response.text}")
+                
+                # Parse response
                 try:
-            response_data = response.json()
-            logging.debug(f"Response data: {json.dumps(response_data, indent=2)}")
+                    response_data = response.json()
+                    logging.debug(f"Response data: {json.dumps(response_data, indent=2)}")
                 except ValueError:
                     response_data = {"message": response.text}
                     logging.debug(f"Non-JSON response: {response.text}")
-            
+                
                 # Check for success status codes
-            success = False
-            
-            if response.status_code in (200, 201, 202):
+                success = False
+                
+                if response.status_code in (200, 201, 202):
                     logging.info(f"Received successful status code: {response.status_code}")
                     
                     # Update spinner with status
@@ -1236,18 +1229,18 @@ def add_site_ui(stdscr, dnac):
                         
                         # Method 1: Check site list (most reliable)
                         try:
-                                verify_url = f"{base_url}/dna/intent/api/v1/site"
-                                verify_response = dnac.session.get(
-                                    verify_url, 
-                                    headers={"x-auth-token": dnac.token},
-                                    timeout=10
-                                )
-                                
+                            verify_url = f"{base_url}/dna/intent/api/v1/site"
+                            verify_response = dnac.session.get(
+                                verify_url, 
+                                headers={"x-auth-token": dnac.token},
+                                timeout=10
+                            )
+                            
                             # Special logging for UK buildings
                             if parent_site == "UK" and site_type == "building":
                                 logging.info(f"Verifying building under UK (attempt {attempt+1})")
                             
-                                if verify_response.status_code == 200:
+                            if verify_response.status_code == 200:
                                 try:
                                     verify_data = verify_response.json()
                                     # Log UK building verification data
@@ -1272,15 +1265,13 @@ def add_site_ui(stdscr, dnac):
                                                         logging.info(f"UK Building '{site_name}' found in hierarchy containing UK!")
                                                         verify_found = True
                                                         success = True
-                                                        break
                                                     
                                                     # Standard checks for all buildings
                                                     # 1. Exact name match
-                                            if site.get('name') == site_name:
+                                                    if site.get('name') == site_name:
                                                         logging.info(f"Building '{site_name}' found by exact name match!")
                                                         verify_found = True
-                                                success = True
-                                                break
+                                                        success = True
                                                     
                                                     # 2. Look for building in hierarchy path with parent
                                                     if site_hierarchy:
@@ -1314,9 +1305,11 @@ def add_site_ui(stdscr, dnac):
                                                     if parent_site != "Global" and site_name in site_hierarchy:
                                                         logging.info(f"Building '{site_name}' found in non-Global hierarchy: {site_hierarchy}")
                                                         verify_found = True
-                                    success = True
-                                    break
-                            except Exception as e:
+                                                        success = True
+                                                        break
+                                except ValueError:
+                                    logging.warning("Failed to parse verification response as JSON")
+                        except Exception as e:
                             logging.warning(f"Error in verification method 1: {str(e)}")
                         
                         # Method 2: Try getting site by name (useful for buildings/floors)
@@ -1334,14 +1327,13 @@ def add_site_ui(stdscr, dnac):
                                 else:
                                     verify_url = f"{base_url}/dna/intent/api/v1/site?name={encoded_name}"
                                     
-                            verify_response = dnac.session.get(
-                                verify_url, 
-                                headers={"x-auth-token": dnac.token},
-                                timeout=10
-                            )
-                            
-                            if verify_response.status_code == 200:
-                                verify_data = verify_response.json()
+                                verify_response = dnac.session.get(
+                                    verify_url, 
+                                    headers={"x-auth-token": dnac.token},
+                                    timeout=10
+                                
+                                if verify_response.status_code == 200:
+                                    verify_data = verify_response.json()
                                     # Special logging for UK buildings
                                     if parent_site == "UK" and site_type == "building":
                                         logging.debug(f"UK name search response: {json.dumps(verify_data, indent=2)}")
@@ -1356,7 +1348,8 @@ def add_site_ui(stdscr, dnac):
                                                 if isinstance(site, dict) and site.get('name') == site_name:
                                                     logging.info(f"Site '{site_name}' found in name query response list!")
                                                     verify_found = True
-                                            break
+                                                    success = True
+                                                break
                                         elif isinstance(response_obj, dict):
                                             # If it's a dict, check direct match or sites list
                                             if response_obj.get('name') == site_name:
@@ -1365,16 +1358,16 @@ def add_site_ui(stdscr, dnac):
                                                 success = True
                                             elif 'sites' in response_obj and isinstance(response_obj['sites'], list):
                                                 for site in response_obj['sites']:
-                                        if site.get('name') == site_name:
+                                                    if site.get('name') == site_name:
                                                         logging.info(f"Site '{site_name}' found in sites list!")
                                                         verify_found = True
-                                            success = True
-                                            break
+                                                        success = True
+                                                break
                                         # Generic check for non-empty response
                                         elif response_obj:
                                             logging.info(f"Site likely created - found non-empty response for '{site_name}'")
                                             verify_found = True
-                    success = True
+                                            success = True
                             except Exception as e:
                                 logging.warning(f"Error in verification method 2: {str(e)}")
                                 # Log full error details with traceback
@@ -1385,14 +1378,14 @@ def add_site_ui(stdscr, dnac):
                         if not verify_found and parent_id and parent_id != "global":
                             try:
                                 verify_url = f"{base_url}/dna/intent/api/v1/site/{parent_id}"
-                verify_response = dnac.session.get(
-                    verify_url, 
-                    headers={"x-auth-token": dnac.token},
-                    timeout=10
-                )
-                
-                if verify_response.status_code == 200:
-                    verify_data = verify_response.json()
+                                verify_response = dnac.session.get(
+                                    verify_url, 
+                                    headers={"x-auth-token": dnac.token},
+                                    timeout=10
+                                )
+                                
+                                if verify_response.status_code == 200:
+                                    verify_data = verify_response.json()
                                     # Look for the site name in the response
                                     response_text = json.dumps(verify_data)
                                     if site_name in response_text:
@@ -1404,8 +1397,8 @@ def add_site_ui(stdscr, dnac):
                         
                         if verify_found:
                             update_spinner("Site creation confirmed!")
-                                break
-                
+                            break
+                        
                         # If this is the last attempt, log failure
                         if attempt == max_verification_attempts - 1 and not verify_found:
                             logging.error(f"Failed to verify site creation after {max_verification_attempts} attempts")
@@ -1425,15 +1418,15 @@ def add_site_ui(stdscr, dnac):
                         error_msg = error_msg['message']
                     logging.error(f"API Error: {error_msg}")
                     raise Exception(f"API Error: {error_msg}")
+                
+            except Exception as e:
+                logging.error(f"Exception during API call: {str(e)}")
+                raise
             
-        except Exception as e:
-            logging.error(f"Exception during API call: {str(e)}")
-            raise
-        
-        # If we get here, the site was created successfully
-        stdscr.clear()
-        logging.info(f"Successfully created site: {site_name} of type {site_type}")
-        try:
+            # If we get here, the site was created successfully
+            stdscr.clear()
+            logging.info(f"Successfully created site: {site_name} of type {site_type}")
+            try:
                 content_start = draw_standard_header_footer(
                     stdscr, 
                     title="Cisco Catalyst Centre",
@@ -1452,11 +1445,11 @@ def add_site_ui(stdscr, dnac):
                     stdscr.addstr(content_start + 1, 2, result_message)
                     stdscr.addstr(content_start + 2, 2, "Check logs for details")
                     stdscr.attroff(get_color(ColorPair.ERROR))
-            
-            # Show site hierarchy
+                
+                # Show site hierarchy
                 stdscr.addstr(content_start + 3, 2, "Current Site Hierarchy:")
-            stdscr.refresh()
-            
+                stdscr.refresh()
+                
                 # Get h, w for display limits
                 h, w = stdscr.getmaxyx()
                 
@@ -1555,7 +1548,7 @@ def create_uk_building_direct(dnac, site_name, parent_id):
         logging.debug(f"UK BUILDING DIRECT RESPONSE BODY: {response.text}")
         
         return response
-            except Exception as e:
+    except Exception as e:
         logging.error(f"UK BUILDING DIRECT ERROR: {str(e)}")
         import traceback
         logging.debug(f"UK BUILDING DIRECT TRACEBACK: {traceback.format_exc()}")
@@ -1568,9 +1561,10 @@ def main():
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
     
     args = parser.parse_args()
-
+    
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.getLogger().setLevel(log_level)
     
     try:
         # Load config
